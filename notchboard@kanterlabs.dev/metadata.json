@@ -1,0 +1,9 @@
+{
+  "uuid": "notchboard@kanterlabs.dev",
+  "name": "Notchboard",
+  "description": "Every app gets its own workspace in a 2D grid, and a Dynamic Island style notch replaces the top bar: grid map, clock, notifications, AirPods and battery. Super + arrows moves between spaces; Shift carries a window.",
+  "shell-version": ["49"],
+  "url": "https://github.com/KanterLabs/notchboard",
+  "settings-schema": "org.gnome.shell.extensions.notchboard",
+  "version": 1
+}

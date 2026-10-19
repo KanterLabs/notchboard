@@ -1,0 +1,240 @@
+.notchboard-map {
+    background-color: rgba(20, 28, 43, 0.96);
+    border: 1px solid rgba(215, 231, 255, 0.25);
+    border-radius: 22px;
+    padding: 18px;
+    color: #f1f5ff;
+    box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.3);
+}
+.notchboard-heading { font-size: 14px; font-weight: bold; color: #e8f0ff; }
+.notchboard-hint { font-size: 11px; color: #b4c4da; }
+.notchboard-cell {
+    background-color: rgba(99, 130, 172, 0.14);
+    border: 1px solid rgba(180, 204, 236, 0.2);
+    border-radius: 10px;
+    padding: 0;
+}
+.notchboard-cell:hover { background-color: rgba(130, 178, 238, 0.27); }
+.notchboard-selection {
+    border: 2px solid #a2ccff;
+    border-radius: 10px;
+    background-color: rgba(130, 185, 255, 0.1);
+    box-shadow: 0 0 12px 0 rgba(143, 194, 255, 0.22);
+}
+.notchboard-title { font-size: 11px; color: #e8f0ff; }
+.notchboard-empty { color: #9fadc1; font-size: 12px; }
+
+/* Dynamic Island: pure black floating pill. St clamps the radius to half the
+   height, so it is a capsule when compact and a rounded slab when open. */
+.notchboard-notch {
+    padding: 3px 9px 2px 9px;
+    border-radius: 22px;
+    background-color: #000000;
+    color: #ffffff;
+    box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.35);
+}
+.notchboard-notch-compact { spacing: 6px; }
+.notchboard-notch-main { padding: 4px 6px; border-radius: 14px; }
+.notchboard-notch-main:hover { background-color: rgba(255, 255, 255, 0.1); }
+.notchboard-notch-drawer { spacing: 6px; padding: 4px 4px 6px 4px; }
+.notchboard-notch-label {
+    font-size: 11px;
+    font-weight: bold;
+    color: #8e8e93;
+    padding: 0 8px 0 4px;
+}
+.notchboard-clock {
+    padding: 0 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    font-feature-settings: "tnum";
+}
+.notchboard-ai { padding: 0 2px 0 4px; }
+.notchboard-ai-placeholder { font-size: 11px; color: #8e8e93; }
+.notchboard-notch .panel-button {
+    -minimum-hpadding: 6px;
+    -natural-hpadding: 6px;
+    border-radius: 14px;
+    color: #ffffff;
+}
+.notchboard-notch .panel-button:hover { background-color: rgba(255, 255, 255, 0.1); }
+.notchboard-dot { background-color: #2c2c2e; border-radius: 2px; }
+.notchboard-dot.occupied { background-color: #636366; }
+.notchboard-dot.active { background-color: #ffffff; box-shadow: 0 0 5px 0 rgba(255, 255, 255, 0.45); }
+.notchboard-notch .notchboard-action {
+    color: #ffffff;
+    background-color: #1c1c1e;
+    border-radius: 13px;
+    padding: 5px 12px;
+}
+.notchboard-notch .notchboard-action:hover, .notchboard-notch .notchboard-action:focus {
+    background-color: #3a3a3c;
+}
+/* Laptop battery hairline along the bottom of the island, iPhone colours. */
+.notchboard-battery { height: 2px; margin: 1px 6px 0 6px; border-radius: 1px; background-color: #2c2c2e; }
+.notchboard-battery-fill { height: 2px; border-radius: 1px; background-color: rgba(255, 255, 255, 0.9); }
+.notchboard-battery-fill.charging { background-color: #30d158; }
+.notchboard-battery-fill.low { background-color: #ff3b30; }
+.notchboard-notch.alert { box-shadow: 0 0 16px 2px rgba(255, 59, 48, 0.6); }
+
+/* Notification bell: grey when nothing is missed, white with a red count. */
+.notchboard-bell { min-width: 26px; height: 24px; padding: 0 6px; border-radius: 12px; margin-right: 2px; }
+.notchboard-bell-layers { spacing: 4px; }
+.notchboard-bell:hover, .notchboard-bell:focus { background-color: rgba(255, 255, 255, 0.1); }
+.notchboard-bell:checked { background-color: #3a3a3c; }
+.notchboard-bell-icon { icon-size: 15px; color: #8e8e93; }
+.notchboard-bell.unseen .notchboard-bell-icon, .notchboard-bell:checked .notchboard-bell-icon { color: #ffffff; }
+.notchboard-bell-badge {
+    min-width: 8px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background-color: #ff3b30;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: bold;
+    text-align: center;
+}
+.notchboard-bell-menu { -arrow-rise: 0px; -boxpointer-gap: 6px; }
+.notchboard-bell-menu .popup-menu-content {
+    padding: 10px;
+    border: none;
+    border-radius: 22px;
+    background-color: #000000;
+    box-shadow: 0 14px 40px 0 rgba(0, 0, 0, 0.6);
+}
+.notchboard-bell-panel { width: 340px; spacing: 4px; color: #ffffff; }
+.notchboard-bell-header { padding: 2px 2px 4px 6px; }
+.notchboard-bell-heading { font-size: 13px; font-weight: bold; }
+.notchboard-bell-scroll { max-height: 420px; }
+/* A slim lane of its own beside the rows, never painted under them. */
+.notchboard-bell-scroll StScrollBar { min-width: 8px; margin-left: 4px; }
+.notchboard-bell-scroll StScrollBar > .vhandle {
+    border: 2px solid transparent;
+    border-radius: 4px;
+    background-color: #48484a;
+}
+.notchboard-bell-scroll StScrollBar > .vhandle:hover { background-color: #636366; }
+.notchboard-bell-list { spacing: 6px; }
+.notchboard-bell-group {
+    padding: 6px 8px 0 8px;
+    font-size: 11px;
+    font-weight: bold;
+    color: #8e8e93;
+}
+.notchboard-bell-row {
+    padding: 9px 8px 9px 4px;
+    border-radius: 14px;
+    background-color: #1c1c1e;
+    color: #ffffff;
+    text-align: left;
+}
+.notchboard-bell-row:hover, .notchboard-bell-row:focus { background-color: #3a3a3c; }
+.notchboard-bell-dot { width: 5px; height: 5px; border-radius: 3px; margin-right: 3px; background-color: #0a84ff; }
+.notchboard-bell-row-icon { icon-size: 28px; margin-right: 9px; }
+.notchboard-bell-text { spacing: 1px; }
+.notchboard-bell-title { font-size: 12.5px; font-weight: bold; }
+.notchboard-bell-time { font-size: 11px; color: #8e8e93; padding-left: 8px; }
+.notchboard-bell-body { font-size: 12px; color: #c7c7cc; }
+.notchboard-bell-close {
+    width: 18px;
+    height: 18px;
+    margin-left: 6px;
+    border-radius: 9px;
+    color: transparent;
+    background-color: transparent;
+}
+.notchboard-bell-row:hover .notchboard-bell-close, .notchboard-bell-close:focus {
+    color: #ffffff;
+    background-color: #48484a;
+}
+.notchboard-bell-empty { padding: 22px 0 16px 0; font-size: 12.5px; color: #8e8e93; }
+.notchboard-bell-footer { padding: 4px 2px 0 2px; }
+.notchboard-bell-pill {
+    padding: 3px 10px;
+    border-radius: 11px;
+    background-color: #1c1c1e;
+    color: #ffffff;
+    font-size: 11.5px;
+}
+.notchboard-bell-pill:hover, .notchboard-bell-pill:focus { background-color: #3a3a3c; }
+.notchboard-bell-pill:checked { background-color: #5e5ce6; }
+
+/* AirPods: battery ring and charge beside the bell, from EarPort. */
+.notchboard-pods { height: 24px; padding: 0 7px; border-radius: 12px; }
+.notchboard-pods:hover, .notchboard-pods:focus { background-color: rgba(255, 255, 255, 0.1); }
+.notchboard-pods:checked { background-color: #3a3a3c; }
+.notchboard-pods-box { spacing: 5px; }
+.notchboard-pods-icon { icon-size: 14px; color: #ffffff; }
+.notchboard-pods-label { font-size: 12px; color: #ffffff; font-feature-settings: "tnum"; }
+.notchboard-pods-label.low { color: #ff3b30; }
+.notchboard-pods-header { spacing: 10px; padding: 2px 4px 8px 4px; }
+.notchboard-pods-art { width: 36px; height: 36px; border-radius: 10px; background-color: #1c1c1e; color: #ffffff; }
+.notchboard-pods-status { font-size: 11.5px; color: #30d158; }
+.notchboard-pods-cells { spacing: 6px; }
+.notchboard-pods-cell { spacing: 4px; padding: 10px 0 8px 0; border-radius: 14px; background-color: #1c1c1e; }
+.notchboard-pods-value { font-size: 10px; font-weight: bold; color: #ffffff; }
+.notchboard-pods-caption { font-size: 11px; color: #8e8e93; }
+.notchboard-pods-source { font-size: 10.5px; color: #8e8e93; padding: 2px 6px 0 6px; }
+.notchboard-pods-modes { spacing: 4px; padding: 4px; border-radius: 16px; background-color: #1c1c1e; }
+.notchboard-pods-mode { padding: 8px 0; border-radius: 12px; font-size: 11px; color: #c7c7cc; }
+.notchboard-pods-mode:hover, .notchboard-pods-mode:focus { background-color: #3a3a3c; }
+.notchboard-pods-mode:checked { background-color: #5e5ce6; color: #ffffff; font-weight: bold; }
+.notchboard-pods-toggle { padding: 9px 12px; font-size: 12.5px; }
+.notchboard-pods-peek {
+    spacing: 16px;
+    padding: 14px 20px;
+    border-radius: 30px;
+    background-color: #000000;
+    color: #ffffff;
+    box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.5);
+}
+.notchboard-pods-peek .notchboard-pods-cell { background-color: transparent; padding: 0; }
+.notchboard-pods-peek-art { width: 60px; height: 60px; border-radius: 16px; background-color: #1c1c1e; }
+.notchboard-pods-peek-name { font-size: 15px; font-weight: bold; }
+.notchboard-action {
+    color: #dceaff;
+    background-color: rgba(136, 174, 229, 0.12);
+    border-radius: 9px;
+    padding: 7px 11px;
+    font-size: 12px;
+    transition-duration: 100ms;
+}
+.notchboard-action:hover, .notchboard-action:focus {
+    background-color: rgba(136, 185, 255, 0.28);
+}
+.notchboard-launcher {
+    spacing: 20px;
+    padding: 28px;
+    border-radius: 28px;
+    border: 1px solid rgba(204, 225, 255, 0.25);
+    background-color: rgba(19, 28, 44, 0.97);
+    color: #eef4ff;
+    box-shadow: 0 18px 54px 0 rgba(0, 0, 0, 0.28);
+}
+.notchboard-launcher-header { spacing: 18px; }
+.notchboard-launcher-title { font-size: 23px; font-weight: bold; color: #f0f5ff; }
+.notchboard-launcher-subtitle { font-size: 11px; color: #b4c6df; padding-top: 6px; }
+.notchboard-search {
+    padding: 12px 15px;
+    border-radius: 14px;
+    color: #eef5ff;
+    background-color: rgba(8, 15, 29, 0.65);
+    border: 1px solid rgba(159, 193, 238, 0.3);
+    selection-background-color: #41648c;
+    selected-color: #ffffff;
+    font-size: 15px;
+}
+.notchboard-search:focus { border-color: #a2ccff; }
+.notchboard-app {
+    border-radius: 17px;
+    border: 1px solid transparent;
+    padding: 12px 8px;
+    transition-duration: 100ms;
+}
+.notchboard-app:hover, .notchboard-app:focus, .notchboard-app:selected {
+    background-color: rgba(128, 175, 240, 0.17);
+    border-color: rgba(169, 207, 255, 0.55);
+}
+.notchboard-app-content { spacing: 9px; }
+.notchboard-app-label { font-size: 11px; text-align: center; color: #e7effc; }

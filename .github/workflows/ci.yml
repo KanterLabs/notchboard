@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  unit:
+    # Grid logic and settings schema: short and light.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    container:
+      image: registry.fedoraproject.org/fedora:43
+    steps:
+      - name: Install toolchain
+        run: dnf install -y --setopt=install_weak_deps=False nodejs glib2 make shellcheck python3
+      - uses: actions/checkout@v4
+      - name: Unit tests and schema
+        run: make test
+      - name: Shell scripts
+        run: shellcheck -S warning scripts/install.sh tests/shell.sh
+
+  headless-shell:
+    # Real gnome-shell 49 in a headless Wayland session, with real GTK windows,
+    # input, notifications, a fake EarPort service and hot reloads.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    container:
+      image: registry.fedoraproject.org/fedora:43
+    steps:
+      - name: Install gnome-shell
+        run: |
+          dnf install -y --setopt=install_weak_deps=False gnome-shell gjs gtk4 python3-gobject \
+            python3-dbusmock dbus-daemon dconf glib2 adwaita-icon-theme procps-ng
+      - name: System bus and mock logind
+        # gnome-shell exits at startup without a system bus and org.freedesktop.login1,
+        # neither of which exists in a container.
+        run: |
+          mkdir -p /run/dbus
+          dbus-daemon --system --fork
+          nohup python3 -m dbusmock --system --template logind > /tmp/logind.log 2>&1 &
+          sleep 2
+      - uses: actions/checkout@v4
+      - name: Integration suite
+        run: |
+          useradd -m tester
+          chown -R tester .
+          su tester -c ./tests/shell.sh
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        continue-on-error: true
+        with:
+          name: shell-screenshots
+          path: /tmp/notchboard-shell.*/
+          retention-days: 3

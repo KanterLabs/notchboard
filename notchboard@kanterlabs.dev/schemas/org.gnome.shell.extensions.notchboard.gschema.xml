@@ -1,0 +1,19 @@
+<schemalist>
+  <schema id="org.gnome.shell.extensions.notchboard" path="/org/gnome/shell/extensions/notchboard/">
+    <key name="animation-ms" type="i"><default>140</default><range min="0" max="300"/><summary>Workspace slide duration</summary></key>
+    <key name="restore-state" type="s"><default>''</default><summary>Recovery journal for settings owned by Notchboard</summary></key>
+    <key name="grid-reset" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;BackSpace']</default><summary>Pack windows together and remove unused workspace rows</summary></key>
+    <key name="grid-close-space" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;r']</default><summary>Close windows in the current workspace and return to its launcher</summary></key>
+    <key name="hosted-indicator" type="s"><default>'ai-usage@laptopconfig'</default><summary>Panel indicator moved into the island, by its status-area key; empty for none</summary></key>
+    <key name="notch-hidden" type="b"><default>false</default><summary>Hide the island until the pointer touches the top edge</summary></key>
+    <key name="grid-toggle-notch" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;h']</default><summary>Hide or show the island</summary></key>
+    <key name="grid-left" type="as"><default>['&lt;Super&gt;Left']</default><summary>Navigate left</summary></key>
+    <key name="grid-right" type="as"><default>['&lt;Super&gt;Right']</default><summary>Navigate right</summary></key>
+    <key name="grid-up" type="as"><default>['&lt;Super&gt;Up']</default><summary>Navigate up</summary></key>
+    <key name="grid-down" type="as"><default>['&lt;Super&gt;Down']</default><summary>Navigate down</summary></key>
+    <key name="grid-move-left" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;Left']</default><summary>Move window left</summary></key>
+    <key name="grid-move-right" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;Right']</default><summary>Move window right</summary></key>
+    <key name="grid-move-up" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;Up']</default><summary>Move window up</summary></key>
+    <key name="grid-move-down" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;Down']</default><summary>Move window down</summary></key>
+  </schema>
+</schemalist>

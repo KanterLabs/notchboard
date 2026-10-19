@@ -1,0 +1,5 @@
+<schemalist>
+  <schema id="org.gnome.shell.extensions.notchboard-test" path="/org/gnome/shell/extensions/notchboard-test/">
+    <key name="test-super-chord" type="as"><default>['&lt;Super&gt;F12']</default><summary>Isolated Super chord regression test</summary></key>
+  </schema>
+</schemalist>

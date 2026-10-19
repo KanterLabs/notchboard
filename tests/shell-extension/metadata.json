@@ -1,0 +1,1 @@
+{"uuid":"notchboard-test@kanterlabs.dev","name":"Notchboard isolated test","description":"Runs only in an isolated test compositor","shell-version":["49"],"settings-schema":"org.gnome.shell.extensions.notchboard-test","version":1}
