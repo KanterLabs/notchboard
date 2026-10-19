@@ -158,9 +158,12 @@ export default class GridTest extends Extension {
         await capture('launchpad');
         const bell = desktop.bell;
         const rowsOf = () => bell._list.get_children().filter(actor => actor.has_style_class_name('notchboard-bell-row'));
-        // Start from a known state: CI sessions can begin with system notifications.
+        // Start from a known state: CI sessions begin with a system notification
+        // (no display manager), so emulate one here and dismiss it like a user.
+        Main.notify('Pre-existing notification', 'Present before the test started');
+        await wait(100);
         for (const source of Main.messageTray.getSources())
-            source.notifications.forEach(notification => { notification.acknowledged = true; });
+            [...source.notifications].forEach(notification => notification.destroy());
         await wait(200);
         check(desktop.notch.contains(bell.button) && !bell._badge.visible &&
             bell._icon.gicon.get_file().query_exists(null),
