@@ -153,7 +153,7 @@ export class AirPodsIndicator {
         this._desktop = desktop;
         this._scanner = new ProximityScanner();
         this._broadcast = null;
-        this._scannedAt = 0;
+        this._scannedAt = -Infinity;
         this.connected = false;
         this.button = new St.Button({style_class: 'notchboard-pods', can_focus: true, visible: false,
             y_align: Clutter.ActorAlign.CENTER, accessible_name: 'AirPods'});
@@ -385,7 +385,7 @@ export class AirPodsIndicator {
         this.button.visible = connected;
         if (!connected) {
             this._broadcast = null;
-            this._scannedAt = 0;
+            this._scannedAt = -Infinity;
             this.menu.close();
         }
         this._render();
