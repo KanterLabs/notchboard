@@ -158,9 +158,13 @@ export default class GridTest extends Extension {
         await capture('launchpad');
         const bell = desktop.bell;
         const rowsOf = () => bell._list.get_children().filter(actor => actor.has_style_class_name('notchboard-bell-row'));
+        // Start from a known state: CI sessions can begin with system notifications.
+        for (const source of Main.messageTray.getSources())
+            source.notifications.forEach(notification => { notification.acknowledged = true; });
+        await wait(200);
         check(desktop.notch.contains(bell.button) && !bell._badge.visible &&
             bell._icon.gicon.get_file().query_exists(null),
-        'Island shows a quiet bundled bell when nothing is missed');
+        `Island shows a quiet bundled bell when nothing is missed: badge=${bell._badge.visible}/${bell._badge.text} icon=${bell._icon.gicon?.get_file?.()?.get_path()}`);
         const notifySource = new MessageTray.Source({title: 'Grid Notifications', iconName: 'dialog-information-symbolic'});
         Main.messageTray.add(notifySource);
         let activations = 0;
