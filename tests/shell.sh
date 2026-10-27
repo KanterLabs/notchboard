@@ -25,6 +25,19 @@ python3 "$repo_dir/scripts/stage.py" "$repo_dir/notchboard@kanterlabs.dev" "$tes
 cp -a "$repo_dir/tests/shell-extension" "$test_dir/data/gnome-shell/extensions/notchboard-test@kanterlabs.dev"
 glib-compile-schemas --strict "$test_dir/data/gnome-shell/extensions/notchboard@kanterlabs.dev/schemas"
 glib-compile-schemas --strict "$test_dir/data/gnome-shell/extensions/notchboard-test@kanterlabs.dev/schemas"
+# NOTCHBOARD_TEST_SCALE=2 renders the same 1280x800 layout at 2x, for
+# README screenshots.
+scale=${NOTCHBOARD_TEST_SCALE:-1}
+if [[ $scale != 1 ]]; then
+    cat > "$test_dir/config/monitors.xml" <<EOF
+<monitors version="2"><configuration><layoutmode>logical</layoutmode>
+  <logicalmonitor><x>0</x><y>0</y><scale>$scale</scale><primary>yes</primary>
+    <monitor><monitorspec><connector>Meta-0</connector><vendor>MetaVendor</vendor><product>MetaVirtualMonitor</product><serial>0x00</serial></monitorspec>
+      <mode><width>$((1280 * scale))</width><height>$((800 * scale))</height><rate>60.000</rate></mode></monitor>
+  </logicalmonitor></configuration></monitors>
+EOF
+fi
+export NOTCHBOARD_TEST_MONITOR="$((1280 * scale))x$((800 * scale))"
 export NOTCHBOARD_TEST_REPO="$repo_dir"
 export NOTCHBOARD_TEST_DIR="$test_dir"
 export NOTCHBOARD_TEST_CLIENT="$repo_dir/tests/client.js"
@@ -49,7 +62,7 @@ dbus-run-session -- bash -c '
     gsettings set org.gnome.mutter dynamic-workspaces true
     python3 -c '\''import json,os; from gi.repository import Gio; s=Gio.Settings.new("org.gnome.desktop.wm.keybindings"); json.dump({k:s.get_user_value(k).print_(True) if s.get_user_value(k) is not None else None for k in s.props.settings_schema.list_keys()},open(os.environ["NOTCHBOARD_TEST_DIR"]+"/bindings-before.json","w"))'\''
     export WAYLAND_DISPLAY=grid-test-0
-    gnome-shell --headless --wayland --no-x11 --virtual-monitor 1280x800 --wayland-display grid-test-0 > "$NOTCHBOARD_TEST_DIR/shell.log" 2>&1 &
+    gnome-shell --headless --wayland --no-x11 --virtual-monitor "$NOTCHBOARD_TEST_MONITOR" --wayland-display grid-test-0 > "$NOTCHBOARD_TEST_DIR/shell.log" 2>&1 &
     shell_pid=$!
     trap '\''kill "$shell_pid" 2>/dev/null || true; wait "$shell_pid" 2>/dev/null || true'\'' EXIT
     for ((attempt=0; attempt<90; attempt++)); do

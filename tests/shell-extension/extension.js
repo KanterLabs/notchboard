@@ -518,6 +518,27 @@ export default class GridTest extends Extension {
         check(podState.ConversationalAwareness && pods._switch.state, 'Conversation Awareness toggles from the island');
         pods.menu.close();
         await wait(200);
+        // The full lower island for the README: AirPods, a playing track, battery.
+        const realSource = power._media;
+        power._media = {players: [{status: 'Playing', trackTitle: 'Midnight City', trackArtists: ['M83'],
+            trackCoverUrl: '', app: null, canGoNext: true, canGoPrevious: true,
+            playPause() {}, next() {}, previous() {}}]};
+        power._syncMedia();
+        await wait(500);
+        check(power._nowPlaying.visible && power.notch.contains(pods.button),
+            'The lower island shows AirPods and the playing track together');
+        await capture('power-island');
+        // The isolated session can't restart or power off; show the tiles a laptop has.
+        power._tiles.restart.show();
+        power._tiles.power.show();
+        await clickActor(power.button);
+        await wait(400);
+        await capture('power-expanded');
+        power.menu.close();
+        power._syncActions();
+        power._media = realSource;
+        power._syncMedia();
+        await wait(300);
         setPod('Connected', false);
         await wait(250);
         check(!pods.button.visible && !pods.connected, 'AirPods leave the island when disconnected');
