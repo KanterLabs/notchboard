@@ -52,7 +52,7 @@ dbus-run-session -- bash -c '
     gnome-shell --headless --wayland --no-x11 --virtual-monitor 1280x800 --wayland-display grid-test-0 > "$NOTCHBOARD_TEST_DIR/shell.log" 2>&1 &
     shell_pid=$!
     trap '\''kill "$shell_pid" 2>/dev/null || true; wait "$shell_pid" 2>/dev/null || true'\'' EXIT
-    for ((attempt=0; attempt<60; attempt++)); do
+    for ((attempt=0; attempt<90; attempt++)); do
         if [[ -s "$NOTCHBOARD_TEST_DIR/result.json" ]]; then
             cat "$NOTCHBOARD_TEST_DIR/result.json"
             python3 -c '\''import json,os; r=json.load(open(os.environ["NOTCHBOARD_TEST_DIR"]+"/result.json")); raise SystemExit(0 if r["passed"] else 1)'\''

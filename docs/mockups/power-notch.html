@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Notchboard · bottom-left power notch mockups</title>
+<style>
+  :root {
+    --black: #000; --g1: #1c1c1e; --g2: #2c2c2e; --g3: #3a3a3c; --g4: #48484a;
+    --dim: #8e8e93; --soft: #c7c7cc; --red: #ff3b30; --green: #30d158;
+    --indigo: #5e5ce6; --blue: #0a84ff; --orange: #ff9f0a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0;
+    color: var(--foreground, #f1f5ff);
+    font: 13px/1.4 "Inter", "Cantarell", system-ui, sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--dim); margin: 0 0 28px; font-size: 12.5px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 22px; }
+  figure { margin: 0; }
+  figcaption { margin-top: 10px; }
+  figcaption b { display: block; font-size: 13px; }
+  figcaption span { color: var(--dim); font-size: 12px; }
+  .tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em;
+         color: #fff; background: var(--indigo); border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+
+  /* A slice of desktop: night-sky wallpaper like the README shots. */
+  .screen {
+    position: relative; height: 330px; border-radius: 14px; overflow: hidden;
+    background:
+      radial-gradient(circle at 82% 22%, #d9d6cc 0 34px, transparent 35px),
+      radial-gradient(1px 1px at 20% 30%, #fff8 50%, transparent 51%),
+      radial-gradient(1px 1px at 60% 15%, #fff6 50%, transparent 51%),
+      radial-gradient(1px 1px at 40% 55%, #fff5 50%, transparent 51%),
+      radial-gradient(1px 1px at 75% 60%, #fff5 50%, transparent 51%),
+      linear-gradient(180deg, #121a33 0%, #1d2547 60%, #6b4a3a 100%);
+    box-shadow: inset 0 0 0 1px #ffffff12;
+  }
+  .screen.short { height: 200px; }
+
+  /* ---------- the notch itself ---------- */
+  .notch {
+    position: absolute; left: 12px; bottom: 12px;
+    background: var(--black); color: #fff; border-radius: 22px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.35);
+  }
+  .pill { display: flex; align-items: center; gap: 2px; padding: 3px 6px 2px; }
+  .btn { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px;
+         border-radius: 13px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .btn.hover { background: rgba(255,255,255,.1); }
+  .btn.on { background: var(--g3); }
+  .btn svg { width: 15px; height: 15px; }
+  .sep { width: 1px; height: 14px; background: var(--g3); margin: 0 2px; }
+  .hair { height: 2px; margin: 1px 6px 2px; border-radius: 1px; background: var(--g2); overflow: hidden; }
+  .hair i { display: block; height: 100%; background: rgba(255,255,255,.9); border-radius: 1px; }
+
+  /* Expanded slab, same language as the AirPods / bell popovers. */
+  .slab { width: 300px; padding: 10px; border-radius: 22px; box-shadow: 0 14px 40px rgba(0,0,0,.6); }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .cap { font-size: 10.5px; font-weight: 700; color: var(--dim); letter-spacing: .03em; padding: 6px 6px 6px; text-transform: uppercase; }
+  .card { background: var(--g1); border-radius: 14px; padding: 10px 12px; }
+  .slider { flex: 1; height: 26px; border-radius: 13px; background: var(--g2); position: relative; overflow: hidden; }
+  .slider i { position: absolute; inset: 0 auto 0 0; background: #fff; border-radius: 13px; }
+  .slider svg { position: absolute; left: 8px; top: 5px; width: 16px; height: 16px; color: #000; z-index: 1; }
+  .pct { width: 34px; text-align: right; font-size: 12px; color: var(--soft); font-variant-numeric: tabular-nums; }
+  .dev { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; font-size: 12.5px; }
+  .dev.sel { background: var(--g3); }
+  .dev .ico { width: 26px; height: 26px; border-radius: 8px; background: var(--g2); display: grid; place-items: center; }
+  .dev .ico svg { width: 14px; height: 14px; }
+  .dev small { margin-left: auto; color: var(--dim); font-size: 11px; }
+  .dev .chk { margin-left: auto; color: var(--blue); }
+
+  .power { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
+  .pbtn { background: var(--g1); border-radius: 14px; padding: 10px 0 8px; display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 11px; color: var(--soft); }
+  .pbtn .disc { width: 34px; height: 34px; border-radius: 50%; background: var(--g3); display: grid; place-items: center; color: #fff; }
+  .pbtn .disc svg { width: 16px; height: 16px; }
+  .pbtn.hover { background: var(--g3); }
+  .pbtn.hover .disc { background: var(--g4); }
+  .pbtn.danger.hover .disc { background: var(--red); }
+  .pbtn.danger.hover { color: #fff; }
+
+  .foot { display: flex; justify-content: space-between; margin-top: 8px; }
+  .chip { font-size: 11.5px; background: var(--g1); border-radius: 11px; padding: 3px 10px; }
+  .uptime { font-size: 11px; color: var(--dim); padding: 4px 4px 0; }
+
+  /* Confirm state */
+  .confirm { display: flex; align-items: center; gap: 14px; padding: 8px 6px 10px; }
+  .ring { width: 54px; height: 54px; flex: none; position: relative; }
+  .ring svg { width: 54px; height: 54px; transform: rotate(-90deg); }
+  .ring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .confirm h3 { margin: 0; font-size: 15px; }
+  .confirm p { margin: 2px 0 0; font-size: 11.5px; color: var(--dim); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .big { text-align: center; padding: 9px 0; border-radius: 13px; background: var(--g1); font-size: 12.5px; }
+  .big.red { background: var(--red); font-weight: 700; }
+
+  /* Corner-fused variant: flush to the screen corner with concave “ears”. */
+  .fused { left: 0; bottom: 0; border-radius: 0 22px 0 0; box-shadow: none; }
+  .fused::before, .fused::after { content: ""; position: absolute; width: 16px; height: 16px; background: transparent; }
+  .fused::before { left: 0; top: -16px; border-bottom-left-radius: 16px; box-shadow: -6px 6px 0 6px #000; }
+  .fused::after  { right: -16px; bottom: 0; border-bottom-left-radius: 16px; box-shadow: -6px 6px 0 6px #000; }
+  .fused .pill { padding: 6px 10px 6px 12px; }
+
+  /* Volume peek (replaces GNOME's OSD). */
+  .peek { display: flex; align-items: center; gap: 10px; padding: 7px 12px 7px 10px; width: 250px; }
+  .peek .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--g2); overflow: hidden; }
+  .peek .bar i { display: block; height: 100%; background: #fff; border-radius: 3px; }
+
+  .ghost { position: absolute; left: 50%; top: 10px; transform: translateX(-50%);
+           background: #000; border-radius: 22px; padding: 6px 14px; display: flex; gap: 18px; align-items: center;
+           font-size: 12px; opacity: .9; white-space: nowrap; }
+  .ghost b { font-size: 13px; }
+  .dots { display: grid; grid-template-columns: repeat(3, 6px); gap: 2px; }
+  .dots i { width: 6px; height: 4px; border-radius: 2px; background: #2c2c2e; }
+  .dots i.o { background: #636366; } .dots i.a { background: #fff; }
+  .note { position: absolute; font-size: 10.5px; color: #ffffffb0; background: #0008; border-radius: 6px; padding: 2px 7px; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="power" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8 1.8v5.4"/><path d="M4.4 4a5.3 5.3 0 1 0 7.2 0"/></symbol>
+    <symbol id="restart" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.2 8a5.2 5.2 0 1 1-1.6-3.8"/><path d="M12 1.6v3h-3"/></symbol>
+    <symbol id="moon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 10.2A6 6 0 0 1 5.8 2.5a6 6 0 1 0 7.7 7.7z"/></symbol>
+    <symbol id="lock" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="10" height="7" rx="2" fill="currentColor" stroke="none"/><path d="M5.2 7V5a2.8 2.8 0 0 1 5.6 0v2"/></symbol>
+    <symbol id="logout" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5H3.5v11H6"/><path d="M10 5l3 3-3 3M13 8H6.5"/></symbol>
+    <symbol id="vol" viewBox="0 0 16 16"><path fill="currentColor" d="M2 6h2.5L8 3v10L4.5 10H2z"/><path d="M10.5 5.5a3.5 3.5 0 0 1 0 5M12.5 3.5a6.3 6.3 0 0 1 0 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="vol1" viewBox="0 0 16 16"><path fill="currentColor" d="M2 6h2.5L8 3v10L4.5 10H2z"/><path d="M10.5 5.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="mute" viewBox="0 0 16 16"><path fill="currentColor" d="M2 6h2.5L8 3v10L4.5 10H2z"/><path d="M10.5 6l4 4M14.5 6l-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="laptop" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3.5" width="10" height="7" rx="1"/><path d="M1.5 12.5h13" stroke-linecap="round"/></symbol>
+    <symbol id="pods" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 10V8a5 5 0 0 1 10 0v2"/><rect x="2" y="9" width="3" height="5" rx="1.2" fill="currentColor"/><rect x="11" y="9" width="3" height="5" rx="1.2" fill="currentColor"/></symbol>
+    <symbol id="hdmi" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="3" width="13" height="8.5" rx="1.2"/><path d="M5.5 14h5" stroke-linecap="round"/></symbol>
+    <symbol id="mic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5" fill="currentColor" stroke="none"/><path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.5"/></symbol>
+    <symbol id="check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></symbol>
+  </defs>
+</svg>
+
+
+<div class="grid">
+
+  <!-- 1. Compact -->
+  <figure>
+    <div class="screen short">
+      <div class="ghost"><div class="dots"><i class="a"></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i></div><b>9:06 PM</b><span>Claude 81%</span><span>Codex 63%</span></div>
+      <div class="notch">
+        <div class="pill">
+          <div class="btn"><svg><use href="#power"/></svg></div>
+          <div class="sep"></div>
+          <div class="btn"><svg><use href="#vol"/></svg>62</div>
+        </div>
+        <div class="hair"><i style="width:62%"></i></div>
+      </div>
+    </div>
+    <figcaption><b>1 · Compact (resting)</b><span>Power glyph + speaker and level. A 2px volume hairline mirrors the top notch's battery line. Scroll on it to change volume, middle-click to mute.</span></figcaption>
+  </figure>
+
+  <!-- 2. Muted / headphones -->
+  <figure>
+    <div class="screen short">
+      <div class="notch" style="left:12px">
+        <div class="pill">
+          <div class="btn"><svg><use href="#power"/></svg></div>
+          <div class="sep"></div>
+          <div class="btn" style="color:var(--dim)"><svg><use href="#mute"/></svg>Muted</div>
+        </div>
+        <div class="hair"><i style="width:0"></i></div>
+      </div>
+      <div class="notch" style="left:190px">
+        <div class="pill">
+          <div class="btn"><svg><use href="#power"/></svg></div>
+          <div class="sep"></div>
+          <div class="btn"><svg><use href="#pods"/></svg>40</div>
+        </div>
+        <div class="hair"><i style="width:40%;background:var(--green)"></i></div>
+      </div>
+      <span class="note" style="left:22px;top:14px">muted</span>
+      <span class="note" style="left:200px;top:14px">AirPods are the output</span>
+    </div>
+    <figcaption><b>2 · States</b><span>Muted greys out and empties the line. When AirPods are the output the icon swaps and the line turns green, tying into the existing AirPods module.</span></figcaption>
+  </figure>
+
+  <!-- 3. Expanded -->
+  <figure>
+    <div class="screen">
+      <div class="notch slab">
+        <div class="cap">Sound</div>
+        <div class="row" style="padding:0 2px 6px">
+          <div class="slider"><i style="width:62%"></i><svg><use href="#vol"/></svg></div>
+          <div class="pct">62%</div>
+        </div>
+        <div class="row" style="padding:0 2px 4px">
+          <div class="slider"><i style="width:80%"></i><svg><use href="#mic"/></svg></div>
+          <div class="pct">80%</div>
+        </div>
+        <div class="card" style="padding:4px">
+          <div class="dev sel"><div class="ico"><svg><use href="#laptop"/></svg></div>Speakers<span class="chk"><svg width="14" height="14"><use href="#check"/></svg></span></div>
+          <div class="dev"><div class="ico"><svg><use href="#pods"/></svg></div>AirPods 4th Gen<small>79%</small></div>
+        </div>
+        <div class="power">
+          <div class="pbtn"><div class="disc"><svg><use href="#lock"/></svg></div>Lock</div>
+          <div class="pbtn"><div class="disc"><svg><use href="#moon"/></svg></div>Sleep</div>
+          <div class="pbtn hover"><div class="disc"><svg><use href="#restart"/></svg></div>Restart</div>
+          <div class="pbtn danger"><div class="disc"><svg><use href="#power"/></svg></div>Shut Down</div>
+        </div>
+        <div class="foot"><span class="uptime">Up 3 d 4 h · Battery 71%</span><span class="chip">Log Out…</span></div>
+      </div>
+    </div>
+    <figcaption><b>3 · Expanded <span class="tag">MAIN</span></b><span>Click the pill and it grows up and right into a slab: output and mic sliders, a device picker, then four power tiles. Same cards and pills as the AirPods popover.</span></figcaption>
+  </figure>
+
+  <!-- 4. Confirm -->
+  <figure>
+    <div class="screen">
+      <div class="notch slab" style="width:290px">
+        <div class="confirm">
+          <div class="ring">
+            <svg viewBox="0 0 54 54"><circle cx="27" cy="27" r="23" fill="none" stroke="#2c2c2e" stroke-width="5"/>
+              <circle cx="27" cy="27" r="23" fill="none" stroke="#ff3b30" stroke-width="5" stroke-linecap="round" stroke-dasharray="144.5" stroke-dashoffset="43"/></svg>
+            <b>42</b>
+          </div>
+          <div><h3>Shut down?</h3><p>Automatic in 42 s.<br>2 apps have unsaved work.</p></div>
+        </div>
+        <div class="two"><div class="big">Cancel</div><div class="big red">Shut Down</div></div>
+      </div>
+    </div>
+    <figcaption><b>4 · Confirm (in place)</b><span>The slab morphs instead of opening GNOME's modal dialog. Countdown ring uses the same ring style as the AirPods cells. Restart uses blue, Log Out uses grey.</span></figcaption>
+  </figure>
+
+  <!-- 5. Volume peek -->
+  <figure>
+    <div class="screen short">
+      <div class="notch">
+        <div class="peek">
+          <svg width="16" height="16"><use href="#vol1"/></svg>
+          <div class="bar"><i style="width:34%"></i></div>
+          <span class="pct" style="width:auto">34</span>
+        </div>
+      </div>
+      <span class="note" style="left:22px;bottom:62px">stretches for ~1.5 s, then shrinks back</span>
+    </div>
+    <figcaption><b>5 · Volume key peek</b><span>Pressing volume keys stretches the compact pill sideways into a level bar, replacing GNOME's centre-screen OSD. Then it shrinks back.</span></figcaption>
+  </figure>
+
+  <!-- 6. Corner-fused variant -->
+  <figure>
+    <div class="screen short">
+      <div class="notch fused">
+        <div class="pill">
+          <div class="btn hover"><svg><use href="#power"/></svg></div>
+          <div class="btn"><svg><use href="#vol"/></svg>62</div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>6 · Alt: corner-fused</b><span>Instead of floating, the notch melts into the screen corner with concave “ears” — reads as a physical cutout. More distinctive, but less consistent with the floating top island.</span></figcaption>
+  </figure>
+
+</div>
+</body>
+</html>

@@ -191,7 +191,8 @@ export class AirPodsIndicator {
     }
 
     _buildMenu() {
-        this.menu = new PopupMenu.PopupMenu(this.button, 0.5, St.Side.TOP);
+        this.menu = new PopupMenu.PopupMenu(this.button, 0, St.Side.BOTTOM);
+        this.menu.setSourceAlignment(0);
         this.menu.actor.add_style_class_name('notchboard-bell-menu');
         Main.uiGroup.add_child(this.menu.actor);
         this.menu.actor.hide();
@@ -262,7 +263,9 @@ export class AirPodsIndicator {
                 this.button.add_style_pseudo_class('checked');
             else
                 this.button.remove_style_pseudo_class('checked');
-            this._desktop._syncIsland();
+            if (open)
+                this._desktop.power.menu.close();
+            this._desktop.power._queueConceal();
         });
     }
 
@@ -392,7 +395,7 @@ export class AirPodsIndicator {
         this._maybeScan();
         if (arrived)
             this.showPeek();
-        this._desktop._positionNotch();
+        this._desktop.power.position();
     }
 
     _paint(cells, readings) {
@@ -451,10 +454,11 @@ export class AirPodsIndicator {
         peek.width = -1;
         const [, natural] = peek.get_preferred_width(-1);
         // Fully cover the island, which can be wider than the card.
-        const width = Math.max(natural, this._desktop.notch.width + 16);
+        const width = Math.max(natural, this._desktop.power.notch.width + 16);
         peek.width = width;
-        peek.set_position(Math.round(monitor.x + (monitor.width - width) / 2), monitor.y + 6);
-        peek.set_pivot_point(0.5, 0);
+        const [, height] = peek.get_preferred_height(width);
+        peek.set_position(monitor.x + 6, monitor.y + monitor.height - height - 6);
+        peek.set_pivot_point(0, 1);
         peek.remove_all_transitions();
         // The island is added after this card, so raise the card over it.
         peek.get_parent()?.set_child_above_sibling(peek, null);

@@ -26,7 +26,7 @@
 Notchboard is a GNOME Shell extension that turns workspaces into a board.
 Each normal window gets its own workspace in a three-column grid, and
 `Super` + arrows slides between them. The full-width top bar is replaced by
-a floating black **notch**, styled like iPhone's Dynamic Island. It holds a
+a black **notch** hung from the top edge, styled like iPhone's Dynamic Island. It holds a
 live mini-map of the grid, the clock, your notifications, AirPods and the
 laptop battery.
 
@@ -74,20 +74,26 @@ window, setting, shortcut, dock and the top bar back the way they were.
 <img alt="The island notch: grid dots, clock, AI usage readings and a notification bell, with a thin battery line along its bottom" src="docs/assets/island.png" width="520">
 
 - **Grid at a glance.** Dots show which cells are occupied and where you are.
+  A red dot marks a window with unseen notifications.
   Hover for a drawer with your position, `+` (new space), `↻` (pack the grid)
   and hide.
 - **Notifications without pop-ups.** Banners go to a bell instead. It wiggles
   and counts what you missed, and a click shows the list. Critical alerts,
   such as low battery, still pop up.
 - **AirPods.** With [EarPort](https://github.com/Anoryth/earport) installed,
-  the notch shows AirPods battery and noise control. A card appears when they
+  the lower island shows AirPods battery and noise control. A card appears when they
   connect. When AirPods don't report battery over EarPort's link, Notchboard
   reads their Bluetooth LE broadcast instead (10% steps).
-- **Battery line.** A hairline along the bottom shows laptop charge: white,
+- **Battery line.** A hairline along the lower island shows laptop charge: white,
   green on power, red when low.
 - **One panel indicator of your choice** can live in the notch (by default the
   AI Usage indicator, if installed).
 - **Hide it** with `Super` + `Shift` + `H`; touch the top edge to peek.
+- **Power island.** A second pill in the bottom-left corner holds battery, AirPods and the song
+  that's playing. Expanded, it has playback controls, volume (or scroll the
+  pill; middle-click mutes), output devices, Lock, Sleep, Restart and Shut Down. Restart, shut down and log out are confirmed in the
+  island with a countdown ring instead of GNOME's dialog, and volume keys
+  stretch the pill into a level bar. It hides and peeks along with the notch.
 
 <p>
 <img alt="Notification list dropping down from the bell" src="docs/assets/notifications.png" width="380">

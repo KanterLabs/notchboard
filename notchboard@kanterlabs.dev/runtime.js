@@ -538,6 +538,12 @@ export default class Notchboard extends Extension {
                 topWindowsStack: Main.uiGroup.get_children().indexOf(global.top_window_group),
             } : null,
             notch: this._desktop?.notch.is_mapped() ?? false,
+            power: this._desktop?.power ? {
+                mapped: this._desktop.power.notch.is_mapped(),
+                position: this._desktop.power.notch.get_transformed_position(),
+                battery: this._desktop.power.notch.contains(this._desktop.battery.track),
+                airpods: this._desktop.power.notch.contains(this._desktop.airpods.button),
+            } : null,
             fullscreen: focus?.is_fullscreen() ?? false,
             app: focus ? Shell.WindowTracker.get_default().get_window_app(focus)?.get_id() : null,
             overview: Main.overview.visible, locked: Main.sessionMode.isLocked,
@@ -564,7 +570,8 @@ export default class Notchboard extends Extension {
 
     _syncOverlayCompositing() {
         const visible = !this._stopping && !Main.sessionMode.isLocked &&
-            !!(this._map || this._desktop?.notch.visible || this._desktop?.launcher?.visible);
+            !!(this._map || this._desktop?.notch.visible || this._desktop?.power?.notch.visible ||
+            this._desktop?.launcher?.visible);
         if (visible === this._overlayCompositing)
             return;
         this._overlayCompositing = visible;

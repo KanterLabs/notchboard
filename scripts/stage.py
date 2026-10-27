@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import tempfile
 
-FILES = ('runtime.js', 'desktop.js', 'bell.js', 'airpods.js', 'battery.js', 'grid.js', 'stylesheet.css', 'metadata.json',
+FILES = ('runtime.js', 'desktop.js', 'bell.js', 'airpods.js', 'battery.js', 'power.js', 'grid.js', 'stylesheet.css', 'metadata.json',
          'schemas/org.gnome.shell.extensions.notchboard.gschema.xml',
          'icons/notchboard-bell-symbolic.svg', 'icons/notchboard-bell-muted-symbolic.svg')
 

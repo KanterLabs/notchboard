@@ -1,6 +1,7 @@
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -111,6 +112,7 @@ export class NotificationBell {
             'source-removed', (_tray, source) => { this._unwatch(source); this._sync(); }, this);
         Main.messageTray.getSources().forEach(source => this._watch(source));
         this._settings.connectObject('changed::show-banners', () => this._sync(), this);
+        global.display.connectObject('notify::focus-window', () => this._seeFocused(), this);
         this._sync();
     }
 
@@ -271,6 +273,7 @@ export class NotificationBell {
     _sync() {
         if (this._destroyed)
             return;
+        this._seeFocused();
         this.unseen = Main.messageTray.getSources().reduce((sum, source) => sum + source.unseenCount, 0);
         this._badge.text = this.unseen > 9 ? '9+' : String(this.unseen);
         this._badge.visible = this.unseen > 0;
@@ -285,6 +288,49 @@ export class NotificationBell {
         else
             this._dnd.remove_style_pseudo_class('checked');
         this._queueRender();
+        this._desktop.owner._queueDesktopSync();
+    }
+
+    // GNOME's "is ready" attention notices belong to one window; everything
+    // else belongs to every window of the app that sent it.
+    _owns(source, window, app) {
+        if (source._window)
+            return source._window === window;
+        const owner = source.app ?? source._app;
+        return !!owner && owner === app;
+    }
+
+    // Looking at a window counts as seeing its app's notifications.
+    _seeFocused() {
+        const window = global.display.focus_window;
+        if (!window || Main.sessionMode.isLocked)
+            return;
+        const app = Shell.WindowTracker.get_default().get_window_app(window);
+        for (const source of Main.messageTray.getSources()) {
+            if (source.unseenCount && this._owns(source, window, app)) {
+                for (const notification of source.notifications)
+                    notification.acknowledged = true;
+            }
+        }
+    }
+
+    // Workspace indices holding a window with unseen notifications.
+    notifiedCells() {
+        const sources = Main.messageTray.getSources().filter(source => source.unseenCount);
+        const cells = new Set();
+        if (!sources.length)
+            return cells;
+        const tracker = Shell.WindowTracker.get_default();
+        for (const actor of global.get_window_actors()) {
+            const window = actor.meta_window;
+            const workspace = window.get_workspace();
+            if (!workspace || !this._desktop.owner._eligible(window))
+                continue;
+            const app = tracker.get_window_app(window);
+            if (sources.some(source => this._owns(source, window, app)))
+                cells.add(workspace.index());
+        }
+        return cells;
     }
 
     // Mirrors the cases where GNOME would have shown a banner (and played its
@@ -323,6 +369,7 @@ export class NotificationBell {
         this._renderId = 0;
         Main.messageTray.disconnectObject(this);
         this._settings.disconnectObject(this);
+        global.display.disconnectObject(this);
         for (const source of this._sources)
             source.disconnectObject(this);
         this._sources.clear();

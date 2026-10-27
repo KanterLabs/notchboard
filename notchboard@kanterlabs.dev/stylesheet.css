@@ -24,14 +24,13 @@
 .notchboard-title { font-size: 11px; color: #e8f0ff; }
 .notchboard-empty { color: #9fadc1; font-size: 12px; }
 
-/* Dynamic Island: pure black floating pill. St clamps the radius to half the
-   height, so it is a capsule when compact and a rounded slab when open. */
+/* Dynamic Island: pure black, hung from the top edge like a notch. Ears drawn
+   beside it curve it into the bezel, so it needs no shadow. */
 .notchboard-notch {
-    padding: 3px 9px 2px 9px;
-    border-radius: 22px;
+    padding: 4px 12px 3px 12px;
+    border-radius: 0 0 20px 20px;
     background-color: #000000;
     color: #ffffff;
-    box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.35);
 }
 .notchboard-notch-compact { spacing: 6px; }
 .notchboard-notch-main { padding: 4px 6px; border-radius: 14px; }
@@ -61,6 +60,7 @@
 .notchboard-notch .panel-button:hover { background-color: rgba(255, 255, 255, 0.1); }
 .notchboard-dot { background-color: #2c2c2e; border-radius: 2px; }
 .notchboard-dot.occupied { background-color: #636366; }
+.notchboard-dot.notified { background-color: #ff3b30; box-shadow: 0 0 4px 0 rgba(255, 59, 48, 0.5); }
 .notchboard-dot.active { background-color: #ffffff; box-shadow: 0 0 5px 0 rgba(255, 255, 255, 0.45); }
 .notchboard-notch .notchboard-action {
     color: #ffffff;
@@ -160,7 +160,7 @@
 .notchboard-bell-pill:hover, .notchboard-bell-pill:focus { background-color: #3a3a3c; }
 .notchboard-bell-pill:checked { background-color: #5e5ce6; }
 
-/* AirPods: battery ring and charge beside the bell, from EarPort. */
+/* AirPods: battery ring and charge beside volume in the lower island. */
 .notchboard-pods { height: 24px; padding: 0 7px; border-radius: 12px; }
 .notchboard-pods:hover, .notchboard-pods:focus { background-color: rgba(255, 255, 255, 0.1); }
 .notchboard-pods:checked { background-color: #3a3a3c; }
@@ -192,6 +192,68 @@
 .notchboard-pods-peek .notchboard-pods-cell { background-color: transparent; padding: 0; }
 .notchboard-pods-peek-art { width: 60px; height: 60px; border-radius: 16px; background-color: #1c1c1e; }
 .notchboard-pods-peek-name { font-size: 15px; font-weight: bold; }
+/* Power island: the bottom-left twin of the top island, for sound and power. */
+.notchboard-power { padding: 5px 8px 4px 6px; border-radius: 0 20px 0 0; }
+.notchboard-power-button { height: 26px; padding: 0 8px; border-radius: 13px; color: #ffffff; }
+.notchboard-power-button:hover, .notchboard-power-button:focus { background-color: rgba(255, 255, 255, 0.1); }
+.notchboard-power-button:checked { background-color: #3a3a3c; }
+.notchboard-power-box { spacing: 6px; }
+.notchboard-power-icon { icon-size: 15px; color: #ffffff; }
+.notchboard-power-sep { width: 1px; height: 14px; margin: 0 3px; background-color: #3a3a3c; }
+.notchboard-power-label { font-size: 12px; color: #ffffff; font-feature-settings: "tnum"; }
+.notchboard-media-label { max-width: 220px; color: #c7c7cc; }
+.notchboard-media-note { icon-size: 13px; color: #30d158; }
+.notchboard-media-card { spacing: 10px; padding: 8px 6px 8px 8px; border-radius: 14px; background-color: #1c1c1e; }
+.notchboard-media-art { icon-size: 40px; border-radius: 8px; }
+.notchboard-media-title { font-size: 12.5px; font-weight: bold; color: #ffffff; }
+.notchboard-media-artist { font-size: 11.5px; color: #8e8e93; }
+.notchboard-media-control { width: 30px; height: 30px; border-radius: 15px; color: #ffffff; }
+.notchboard-media-control:hover, .notchboard-media-control:focus { background-color: #3a3a3c; }
+.notchboard-power-level { padding: 0 2px; }
+.notchboard-power-level-track { width: 170px; height: 6px; border-radius: 3px; background-color: #2c2c2e; }
+.notchboard-power-level-fill { height: 6px; border-radius: 3px; background-color: #ffffff; }
+.notchboard-power-panel { width: 300px; spacing: 6px; }
+.notchboard-power-row { spacing: 10px; padding: 0 2px; }
+.notchboard-power-slider {
+    height: 26px;
+    -barlevel-height: 26px;
+    -barlevel-background-color: #2c2c2e;
+    -barlevel-active-background-color: #ffffff;
+    -barlevel-overdrive-color: #ff9f0a;
+    -barlevel-overdrive-separator-width: 0px;
+    -slider-handle-radius: 0px;
+}
+.notchboard-power-slider-icon { icon-size: 16px; margin-left: 9px; color: #000000; }
+.notchboard-power-slider-icon.low { color: #8e8e93; }
+.notchboard-power-pct { width: 38px; font-size: 12px; color: #c7c7cc; text-align: right; font-feature-settings: "tnum"; }
+.notchboard-power-devices { spacing: 2px; padding: 4px; border-radius: 14px; background-color: #1c1c1e; }
+.notchboard-power-device { padding: 7px 10px; border-radius: 11px; color: #ffffff; font-size: 12.5px; }
+.notchboard-power-device:hover, .notchboard-power-device:focus { background-color: #2c2c2e; }
+.notchboard-power-device:checked { background-color: #3a3a3c; }
+.notchboard-power-device-art { width: 26px; height: 26px; margin-right: 10px; border-radius: 8px; background-color: #2c2c2e; }
+.notchboard-power-device-note { font-size: 11px; color: #8e8e93; padding-left: 8px; }
+.notchboard-power-device-check { icon-size: 14px; color: #0a84ff; padding-left: 8px; }
+.notchboard-power-tiles { spacing: 6px; }
+.notchboard-power-tile { padding: 10px 0 8px 0; border-radius: 14px; background-color: #1c1c1e; color: #ffffff; }
+.notchboard-power-tile:hover, .notchboard-power-tile:focus { background-color: #3a3a3c; }
+.notchboard-power-disc { width: 34px; height: 34px; margin-bottom: 5px; border-radius: 17px; background-color: #3a3a3c; }
+.notchboard-power-tile:hover .notchboard-power-disc, .notchboard-power-tile:focus .notchboard-power-disc { background-color: #48484a; }
+.notchboard-power-tile.danger:hover .notchboard-power-disc, .notchboard-power-tile.danger:focus .notchboard-power-disc { background-color: #ff3b30; }
+.notchboard-power-tile-label { font-size: 11px; color: #c7c7cc; }
+.notchboard-power-uptime { font-size: 11px; color: #8e8e93; padding-left: 4px; }
+.notchboard-power-confirm { spacing: 14px; padding: 6px 6px 10px 6px; }
+.notchboard-power-count { font-size: 15px; font-weight: bold; font-feature-settings: "tnum"; }
+.notchboard-power-confirm-title { font-size: 15px; font-weight: bold; }
+.notchboard-power-confirm-body { font-size: 11.5px; color: #8e8e93; }
+.notchboard-power-choices { spacing: 6px; }
+.notchboard-power-choice { padding: 9px 0; border-radius: 13px; background-color: #1c1c1e; color: #ffffff; font-size: 12.5px; }
+.notchboard-power-choice:hover, .notchboard-power-choice:focus { background-color: #3a3a3c; }
+.notchboard-power-choice.shutdown { background-color: #ff3b30; font-weight: bold; }
+.notchboard-power-choice.restart { background-color: #0a84ff; font-weight: bold; }
+.notchboard-power-choice.logout { background-color: #48484a; font-weight: bold; }
+.notchboard-power-choice.shutdown:hover, .notchboard-power-choice.shutdown:focus { background-color: #ff6259; }
+.notchboard-power-choice.restart:hover, .notchboard-power-choice.restart:focus { background-color: #409cff; }
+.notchboard-power-choice.logout:hover, .notchboard-power-choice.logout:focus { background-color: #636366; }
 .notchboard-action {
     color: #dceaff;
     background-color: rgba(136, 174, 229, 0.12);

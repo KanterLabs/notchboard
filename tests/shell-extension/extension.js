@@ -66,7 +66,13 @@ export default class GridTest extends Extension {
         check(desktop.notch.visible, 'Workspace notch is visible');
         check(grid._overlayCompositing, 'Visible notch inhibits bypassing Shell composition');
         check(!Main.layoutManager.panelBox.visible, 'Full-width top bar is hidden');
-        check(desktop.notch.y === Main.layoutManager.primaryMonitor.y + 6, 'Island floats just below the top screen edge');
+        check(desktop.notch.y === Main.layoutManager.primaryMonitor.y, 'Island hangs from the top screen edge');
+        {
+            const [left, right] = desktop._ears.ears;
+            check(left.visible && right.visible && left.y === desktop.notch.y && right.y === desktop.notch.y &&
+                left.x + left.width === desktop.notch.x && right.x === desktop.notch.x + desktop.notch.width,
+            `Ears curve the island into the top edge: ${left.x},${left.y} ${right.x} notch ${desktop.notch.x}+${desktop.notch.width}`);
+        }
         check(desktop.notch.get_theme_node().get_background_color().to_string() === '#000000ff',
             'Island is a pure black pill');
         const clockX = () => desktop._clockLabel.get_transformed_position()[0];
@@ -290,17 +296,128 @@ export default class GridTest extends Extension {
         await wait(500);
         check(!grid._settings.get_boolean('notch-hidden') && desktop.notch.visible && !desktop._edge.visible &&
             desktop.notch.translation_y === 0, 'Toggling again keeps the island shown');
+        const power = desktop.power;
+        const [powerX, powerY] = power.notch.get_transformed_position();
+        check(power.notch.visible && power.revealed && !power._edge.visible &&
+            powerX === center.x && Math.abs(powerY + power.notch.height - (center.y + center.height)) <= 1 &&
+            power.notch.get_theme_node().get_background_color().to_string() === '#000000ff',
+        `Power island fills the bottom-left corner: ${powerX},${powerY} ${power.notch.height}`);
+        {
+            const [up, side] = power._ears.ears;
+            check(up.visible && side.visible && up.x === power.notch.x && up.y + up.height === power.notch.y &&
+                side.x === power.notch.x + power.notch.width && side.y + side.height === power.notch.y + power.notch.height,
+            'Ears curve the power island into the left and bottom edges');
+        }
+        desktop.toggleNotch();
+        await wait(500);
+        check(!power.notch.visible && !power.revealed && power._edge.visible &&
+            [...power._ears.ears, ...desktop._ears.ears].every(ear => !ear.visible),
+        'Hiding the island also slides the power island and both islands’ ears away');
+        await movePointer(center.x + 20, center.y + center.height - 1);
+        await wait(400);
+        check(power.notch.visible && power.revealed && !desktop.revealed,
+            'Touching the bottom-left edge brings back only the power island');
+        await movePointer(center.x + center.width / 2, center.y + center.height / 2);
+        await wait(900);
+        check(!power.notch.visible && !power.revealed, 'The power island hides again once the pointer leaves');
+        // Answer gnome-session's end-session request without signalling anything.
+        const endSession = Main.endSessionDialog;
+        const sessionSignals = [];
+        endSession._getUpdateInfo = async () => ({});
+        const realEmit = endSession._dbusImpl.emit_signal;
+        endSession._dbusImpl.emit_signal = name => sessionSignals.push(name);
+        let answered = 0;
+        const invocation = {return_value: () => answered++};
+        await endSession.OpenAsync([2, 0, 60, []], invocation);
+        await wait(400);
+        check(answered === 1 && power.confirming?.signal === 'ConfirmedReboot' && power.menu.isOpen &&
+            power.notch.visible && power._confirm.visible && !endSession.visible,
+        'A restart request reveals the hidden power island with its confirmation instead of GNOME’s dialog');
+        power.menu.close();
+        await wait(900);
+        check(sessionSignals.join() === 'Canceled,Closed' && !power.confirming && !power.notch.visible,
+            'Dismissing the confirmation cancels the restart and the island hides again');
+        desktop.toggleNotch();
+        await wait(500);
+        check(power.notch.visible && power.revealed && power.notch.translation_y === 0,
+            'Showing the island again brings the power island back');
+        await clickActor(power.button);
+        await wait(300);
+        check(power.menu.isOpen && power._panel.visible && !power._confirm.visible &&
+            power._tiles.power.visible === power._actions.can_power_off, 'Clicking the power island opens sound and power');
+        await capture('power-menu');
+        power.menu.close();
+        await wait(250);
+        sessionSignals.length = 0;
+        await endSession.OpenAsync([1, 0, 60, []], invocation);
+        await wait(1300);
+        check(power.confirming?.signal === 'ConfirmedShutdown' && power._go.label === 'Shut Down' &&
+            power._go.has_style_class_name('shutdown') && power._count.text === '59' &&
+            power._confirmBody.text === 'Shutting down automatically in 59 s.',
+        `Shut down counts down in the island: ${power._count.text} ${power._confirmBody.text}`);
+        await capture('power-confirm');
+        await clickActor(power._cancel);
+        await wait(300);
+        check(sessionSignals.join() === 'Canceled,Closed' && !power.confirming && !power.menu.isOpen,
+            'Cancel answers gnome-session and folds the confirmation away');
+        sessionSignals.length = 0;
+        await endSession.OpenAsync([0, 0, 1, []], invocation);
+        await wait(1500);
+        check(sessionSignals.join() === 'ConfirmedLogout' && !power.confirming && !power.menu.isOpen,
+            'An unanswered confirmation goes ahead when its countdown ends');
+        endSession._dbusImpl.emit_signal = realEmit;
+        delete endSession._getUpdateInfo;
+        const osd = Main.osdWindowManager._osdWindows[0];
+        Main.osdWindowManager.showAll(new Gio.ThemedIcon({name: 'audio-volume-medium-symbolic'}), null, 0.4, 1);
+        await wait(400);
+        check(power._level.visible && !power._compact.visible && !osd.visible,
+            'Volume keys stretch the power island instead of showing GNOME’s OSD');
+        await wait(1800);
+        check(!power._level.visible && power._compact.visible, 'The volume peek settles back into the pill');
+        Main.osdWindowManager.showAll(new Gio.ThemedIcon({name: 'display-brightness-symbolic'}), null, 0.4, 1);
+        await wait(200);
+        check(osd.visible && !power._level.visible, 'Other OSDs stay GNOME’s own');
+        const pillWidth = power.notch.width;
+        check(!power._nowPlaying.visible && !power._mediaCard.visible,
+            'With nothing playing the pill shows only the power icon, no volume');
+        const realMedia = power._media;
+        let plays = 0;
+        const track = {status: 'Playing', trackTitle: 'Test Song', trackArtists: ['Test Artist'], trackCoverUrl: '',
+            app: null, canGoNext: true, canGoPrevious: false, playPause: () => plays++, next() {}, previous() {}};
+        power._media = {players: [track]};
+        power._syncMedia();
+        await wait(400);
+        check(power._nowPlaying.visible && power._nowPlayingLabel.text === 'Test Song · Test Artist' &&
+            power.notch.width > pillWidth, 'A playing track appears in the pill');
+        await clickActor(power.button);
+        await wait(300);
+        check(power._mediaCard.visible && power._mediaTitle.text === 'Test Song' &&
+            power._mediaPlay.child.icon_name === 'media-playback-pause-symbolic' && !power._mediaPrev.reactive,
+        'The expanded island shows the track with playback controls');
+        await capture('power-media');
+        await clickActor(power._mediaPlay);
+        check(plays === 1, 'Play/pause reaches the player');
+        power.menu.close();
+        track.status = 'Paused';
+        power._syncMedia();
+        await wait(400);
+        check(!power._nowPlaying.visible && power._mediaCard.visible && Math.abs(power.notch.width - pillWidth) <= 1,
+            'Pausing folds the track out of the pill but keeps it in the expanded island');
+        power._media = realMedia;
+        power._syncMedia();
+        Main.osdWindowManager.hideAll();
         const battery = desktop.battery;
         battery.setReading({percentage: 50, state: 2, timeToEmpty: 5400, timeToFull: 0});
         await wait(150);
         const [, trackY] = battery.track.get_transformed_position();
-        const [, islandY] = desktop.notch.get_transformed_position();
-        check(battery.track.visible && desktop.notch.get_last_child() === battery.track &&
+        const [, islandY] = power.notch.get_transformed_position();
+        check(battery.track.visible && power.notch.get_last_child() === battery.track &&
+            !desktop.notch.contains(battery.track) && power.menu.actor.contains(battery.label) &&
             Math.abs(battery.fill.width - battery.track.width / 2) <= 1 &&
-            battery.track.width >= desktop.notch.width - 40 &&
-            trackY + battery.track.height <= islandY + desktop.notch.height &&
+            battery.track.width >= power.notch.width - 40 &&
+            trackY + battery.track.height <= islandY + power.notch.height &&
             battery.label.text === 'Battery 50% · 1 h 30 min left',
-        `Battery line spans the bottom of the island at its charge: ${battery.fill.width}/${battery.track.width}/${desktop.notch.width} ${battery.label.text}`);
+        `Battery line spans only the lower island at its charge: ${battery.fill.width}/${battery.track.width}/${power.notch.width} ${battery.label.text}`);
         await capture('battery-line');
         battery.setReading({percentage: 15, state: 2, timeToEmpty: 1200, timeToFull: 0});
         await wait(100);
@@ -357,13 +474,17 @@ export default class GridTest extends Extension {
         const podOwner = Gio.bus_own_name_on_connection(Gio.DBus.session, 'io.github.anoryth.EarPort',
             Gio.BusNameOwnerFlags.NONE, null, null);
         await wait(700);
-        check(pods.button.visible && pods.connected && desktop.notch.contains(pods.button),
-            'AirPods appear in the island when EarPort reports a connection');
+        check(pods.button.visible && pods.connected && power.notch.contains(pods.button) &&
+            !desktop.notch.contains(pods.button),
+            'AirPods appear only in the lower island when EarPort reports a connection');
         check(scans === 1 && scanModel === 0x1B20 && pods._label.text === '60%' && pods._source.visible,
             `Missing EarPort battery falls back to the AirPods broadcast: ${scans} ${scanModel} ${pods._label.text}`);
         const chrome = pods._peek.get_parent().get_children();
-        check(pods._peek.visible && pods._peek.get_parent() === desktop.notch.get_parent() &&
-            chrome.indexOf(pods._peek) > chrome.indexOf(desktop.notch), 'Connecting shows the AirPods card over the island');
+        const [peekX, peekY] = pods._peek.get_transformed_position();
+        check(pods._peek.visible && pods._peek.get_parent() === power.notch.get_parent() &&
+            chrome.indexOf(pods._peek) > chrome.indexOf(power.notch) && peekX === center.x + 6 &&
+            peekY > center.y + center.height / 2,
+            'Connecting shows the AirPods card over the lower island');
         await wait(400);
         await capture('airpods-peek');
         await wait(3400);
@@ -426,6 +547,24 @@ export default class GridTest extends Extension {
         check(!desktop.launcher.visible, 'Launchpad hides behind occupied workspaces');
         check(global.workspace_manager.n_workspaces >= 9, 'Grid grew beyond initial two rows');
         const wm = global.workspace_manager;
+        wm.get_workspace_by_index(0).activate(global.get_current_time());
+        await wait(220);
+        // Unseen notifications colour their window's cell in the island map
+        // until that window is focused. Shaped like GNOME's attention notice.
+        const pinged = windows.find(w => w.get_workspace().index() === 2);
+        const pingSource = new MessageTray.Source({title: 'Grid Ping'});
+        pingSource._window = pinged;
+        Main.messageTray.add(pingSource);
+        pingSource.addNotification(new MessageTray.Notification({source: pingSource, title: 'Ping'}));
+        await wait(150);
+        const notifiedDots = () => desktop._mini.get_children().filter(dot => dot.has_style_class_name('notified'));
+        check(bell.notifiedCells().size === 1 && bell.notifiedCells().has(2) && notifiedDots().length === 1,
+            `A window with unseen notifications lights its island cell: cells=${[...bell.notifiedCells()]} dots=${notifiedDots().length}`);
+        wm.get_workspace_by_index(2).activate_with_focus(pinged, global.get_current_time());
+        await wait(250);
+        check(pingSource.unseenCount === 0 && notifiedDots().length === 0,
+            `Focusing the window marks its notifications seen: unseen=${pingSource.unseenCount} dots=${notifiedDots().length}`);
+        pingSource.destroy(MessageTray.NotificationDestroyedReason.SOURCE_CLOSED);
         wm.get_workspace_by_index(0).activate(global.get_current_time());
         await wait(220);
         grid._navigate('right');
@@ -502,8 +641,15 @@ export default class GridTest extends Extension {
         check(grid._map.opacity === 255 && grid._map.get_paint_opacity() === 255,
             'Interactive grid is fully painted rather than transparent');
         const fullscreenWindow = [...grid._windows.keys()][0];
-        fullscreenWindow.get_workspace().activate_with_focus(fullscreenWindow, global.get_current_time());
+        const fullscreenWorkspace = fullscreenWindow.get_workspace();
+        fullscreenWorkspace.activate_with_focus(fullscreenWindow, global.get_current_time());
         await wait(250);
+        check(!desktop.launcher.visible, 'Occupied workspace hides the launcher before fullscreen');
+        let fullscreenLauncherShows = 0;
+        const launcherVisibilityId = desktop.launcher.connect('notify::visible', () => {
+            if (desktop.launcher.visible)
+                fullscreenLauncherShows++;
+        });
         fullscreenWindow.make_fullscreen();
         await wait(500);
         check(fullscreenWindow.is_fullscreen() && Main.layoutManager.primaryMonitor.inFullscreen,
@@ -540,6 +686,26 @@ export default class GridTest extends Extension {
             'AI menu actions work while the fullscreen grid stays pinned');
         fullscreenWindow.unmake_fullscreen();
         await wait(350);
+        check(fullscreenLauncherShows === 0 && !desktop.launcher.visible,
+            `Fullscreen entry and exit never reveal the launcher over an occupied cell: shows=${fullscreenLauncherShows}`);
+        grid._hideMap(true);
+        fullscreenWorkspace.activate_with_focus(fullscreenWindow, global.get_current_time());
+        fullscreenWindow.make_fullscreen();
+        await wait(250);
+        check(fullscreenWindow.is_fullscreen() && monitor.inFullscreen,
+            'Application enters fullscreen again with the map closed');
+        fullscreenWindow.unmake_fullscreen();
+        await wait(250);
+        desktop.launcher.disconnect(launcherVisibilityId);
+        check(fullscreenLauncherShows === 0 && !desktop.launcher.visible && !grid._map,
+            'Repeated fullscreen exit leaves both launcher and map closed');
+        const fullscreenExitFocus = global.stage.get_key_focus();
+        check(wm.get_active_workspace() === fullscreenWorkspace &&
+            fullscreenWindow.get_workspace() === fullscreenWorkspace &&
+            global.display.focus_window === fullscreenWindow &&
+            (!fullscreenExitFocus || !desktop.launcher.contains(fullscreenExitFocus)),
+        'Leaving fullscreen preserves the original workspace and application focus');
+        grid.toggleGrid();
         // A different row viewport rebuilds the map; pin state must survive it.
         grid._setCount(15);
         grid._navigate('down');
@@ -647,7 +813,7 @@ export default class GridTest extends Extension {
             dir.get_child('schemas').make_directory(null);
             dir.get_child('icons').make_directory(null);
             const original = extension.dir.get_child('releases').get_child(originalManifest.revision);
-            for (const file of ['runtime.js', 'desktop.js', 'bell.js', 'airpods.js', 'battery.js', 'grid.js', 'stylesheet.css', 'metadata.json',
+            for (const file of ['runtime.js', 'desktop.js', 'bell.js', 'airpods.js', 'battery.js', 'power.js', 'grid.js', 'stylesheet.css', 'metadata.json',
                 'schemas/org.gnome.shell.extensions.notchboard.gschema.xml', 'schemas/gschemas.compiled',
                 'icons/notchboard-bell-symbolic.svg', 'icons/notchboard-bell-muted-symbolic.svg'])
                 original.get_child(file).copy(dir.get_child(file), Gio.FileCopyFlags.NONE, null, null);
@@ -724,6 +890,9 @@ Notchboard.prototype.enable = function () {
         check(desktop._signals.length === 0 && desktop._docks.size === 0 && !desktop.launcher,
             'Disable removes launchpad, notch, dock guards and UI signals');
         check(Main.layoutManager.panelBox.visible, 'Disabling Notchboard restores the full top bar');
+        check(!Object.hasOwn(Main.osdWindowManager, 'showAll') && !Object.hasOwn(Main.osdWindowManager, 'showOne') &&
+            !Object.hasOwn(Main.endSessionDialog, 'OpenAsync') && !Object.hasOwn(Main.endSessionDialog, 'Close') &&
+            desktop.power._destroyed, 'Disabling Notchboard restores GNOME’s OSD and end-session dialog');
         check(Main.panel._rightBox.contains(this._fakeAI.container),
             'Disabling Notchboard returns AI usage to its original panel');
         const genericPolicy = new MessageTray.NotificationGenericPolicy();

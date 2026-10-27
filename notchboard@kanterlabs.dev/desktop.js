@@ -13,10 +13,64 @@ import {COLUMNS, nearestEmpty} from './grid.js';
 import {NotificationBell} from './bell.js';
 import {AirPodsIndicator} from './airpods.js';
 import {BatteryLine} from './battery.js';
+import {PowerIsland} from './power.js';
 
 const DOCK = 'dash-to-dock@micxgx.gmail.com';
-export const ISLAND_GAP = 6;
-const EDGE = 2;
+export const EDGE = 2;
+export const EAR = 14;
+// Slid this far past the edge when hidden, so nothing of an island shows.
+export const HIDE_MARGIN = 24;
+
+// Concave fillets that blend an island into the screen edge it hangs from.
+// Each ear is a black square cut by a circle round its opposite corner,
+// leaving only the `fill` corner, and follows the island as it moves, slides
+// and hides. `place` maps the island's box to the ear's top-left corner.
+export class IslandEars {
+    constructor(island, specs) {
+        this._island = island;
+        this.ears = specs.map(({fill: [fx, fy], place}) => {
+            const ear = new St.DrawingArea({width: EAR, height: EAR, reactive: false});
+            ear.connect('repaint', () => {
+                const cr = ear.get_context();
+                const [w, h] = ear.get_surface_size();
+                cr.setSourceRGBA(0, 0, 0, 1);
+                cr.setFillRule(1); // even-odd: the square minus the circle
+                cr.rectangle(0, 0, w, h);
+                cr.newSubPath();
+                cr.arc((1 - fx) * w, (1 - fy) * h, w, 0, 2 * Math.PI);
+                cr.fill();
+                cr.$dispose();
+            });
+            ear.place = place;
+            Main.layoutManager.addTopChrome(ear, {affectsInputRegion: false, trackFullscreen: false});
+            return ear;
+        });
+        island.connectObject(
+            'notify::allocation', () => this.sync(),
+            'notify::translation-y', () => this.sync(),
+            'notify::visible', () => this.sync(),
+            'notify::opacity', () => this.sync(), this);
+        this.sync();
+    }
+
+    sync() {
+        const island = this._island;
+        for (const ear of this.ears) {
+            const [x, y] = ear.place(island.x, island.y, island.width, island.height);
+            ear.set_position(Math.round(x), Math.round(y));
+            ear.translation_y = island.translation_y;
+            ear.opacity = island.opacity;
+            ear.visible = island.visible;
+        }
+    }
+
+    destroy() {
+        this._island.disconnectObject(this);
+        for (const ear of this.ears)
+            ear.destroy();
+        this.ears = [];
+    }
+}
 
 // Desktop chrome is independent of workspace placement and owns every actor,
 // signal and temporarily hidden dock that it creates or changes.
@@ -33,12 +87,16 @@ export class GridDesktop {
         this._appSystem = Shell.AppSystem.get_default();
         this._favorites = AppFavorites.getAppFavorites();
         this._buildNotch();
+        this.airpods = new AirPodsIndicator(this);
+        this.battery = new BatteryLine(this);
+        this.power = new PowerIsland(this);
         this._connect(owner._settings, 'changed::hosted-indicator', () => {
             this._restoreAi();
             this._syncAi();
         });
         this._connect(owner._settings, 'changed::notch-hidden', () => {
             this._peek = false;
+            this.power.resetPeek();
             this._syncReveal();
         });
         this._syncReveal(true);
@@ -47,10 +105,12 @@ export class GridDesktop {
         this._connect(this._favorites, 'changed', () => this._reloadApps());
         this._connect(Main.overview, 'showing', () => this.sync());
         this._connect(Main.overview, 'hidden', () => this.sync());
+        this._connect(global.display, 'in-fullscreen-changed', () => this.sync());
         this._connect(Main.sessionMode, 'updated', () => this.sync());
         this._connect(Main.layoutManager, 'monitors-changed', () => {
             this._destroyLauncher();
             this.sync();
+            this.power.position();
             this._hideDocks();
         });
         this._connect(Main.extensionManager, 'extension-state-changed', (_m, extension) => {
@@ -102,8 +162,6 @@ export class GridDesktop {
             y_align: Clutter.ActorAlign.CENTER});
         this._aiSlot.add_child(this._aiPlaceholder);
         compact.add_child(this._aiSlot);
-        this.airpods = new AirPodsIndicator(this);
-        compact.add_child(this.airpods.button);
         this.bell = new NotificationBell(this);
         compact.add_child(this.bell.button);
         this.notch.add_child(compact);
@@ -111,8 +169,6 @@ export class GridDesktop {
             x_align: Clutter.ActorAlign.CENTER, clip_to_allocation: true, visible: false});
         this._position = new St.Label({style_class: 'notchboard-notch-label', y_align: Clutter.ActorAlign.CENTER});
         this._drawer.add_child(this._position);
-        this.battery = new BatteryLine(this);
-        this._drawer.add_child(this.battery.label);
         this._drawer.add_child(this._button('+', 'Go to an empty workspace', () => this.goEmpty()));
         this._drawer.add_child(this._button('↻', 'Reset grid layout without closing windows', () => this.owner.resetGrid()));
         const hide = new St.Button({style_class: 'notchboard-action', can_focus: true,
@@ -121,7 +177,6 @@ export class GridDesktop {
         hide.connect('clicked', () => this.toggleNotch());
         this._drawer.add_child(hide);
         this.notch.add_child(this._drawer);
-        this.notch.add_child(this.battery.track);
         this._wallClock = new GnomeDesktop.WallClock();
         this._clockSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
         this._connect(this._wallClock, 'notify::clock', () => this._updateClock());
@@ -134,6 +189,11 @@ export class GridDesktop {
         });
         // The replacement panel must remain above fullscreen windows and popups.
         Main.layoutManager.addTopChrome(this.notch, {affectsInputRegion: true, trackFullscreen: false});
+        // Hung from the top edge like a notch, with ears into the bezel.
+        this._ears = new IslandEars(this.notch, [
+            {fill: [1, 0], place: (x, y) => [x - EAR, y]},
+            {fill: [0, 0], place: (x, y, w) => [x + w, y]},
+        ]);
         // While the island is hidden, a thin strip along the top edge brings it
         // back for as long as the pointer stays on the strip or the island.
         this._edge = new St.Widget({reactive: true, track_hover: true, visible: false, height: EDGE});
@@ -164,7 +224,7 @@ export class GridDesktop {
     }
 
     _menuOpen() {
-        return !!(this._ai?.indicator.menu?.isOpen || this.bell?.menu.isOpen || this.airpods?.menu.isOpen);
+        return !!(this._ai?.indicator.menu?.isOpen || this.bell?.menu.isOpen);
     }
 
     // Shown at all times unless the user hides it; the setting persists.
@@ -173,6 +233,7 @@ export class GridDesktop {
         if (hide) {
             this.bell.menu.close();
             this.airpods.menu.close();
+            this.power.menu.close();
             this._ai?.indicator.menu?.close();
         }
         this.owner._settings.set_boolean('notch-hidden', hide);
@@ -196,6 +257,7 @@ export class GridDesktop {
     _syncReveal(instant = false) {
         if (this._destroyed)
             return;
+        this.power?.syncReveal(instant);
         const locked = Main.sessionMode.isLocked;
         this._edge.visible = !locked && this._hidden();
         const show = !locked && (!this._hidden() || this._peek);
@@ -203,7 +265,7 @@ export class GridDesktop {
             return;
         this.revealed = show;
         const notch = this.notch;
-        const offset = -(notch.height + ISLAND_GAP + 24);
+        const offset = -(notch.height + HIDE_MARGIN);
         const duration = instant || locked || !this.owner._duration() ? 0 : 240;
         notch.remove_transition('translation-y');
         if (show) {
@@ -287,7 +349,7 @@ export class GridDesktop {
         if (!monitor || this._destroyed || !this.notch.get_stage())
             return;
         const [, width] = this.notch.get_preferred_width(-1);
-        this.notch.set_position(Math.round(monitor.x + (monitor.width - width) / 2), monitor.y + ISLAND_GAP);
+        this.notch.set_position(Math.round(monitor.x + (monitor.width - width) / 2), monitor.y);
         this._edge.width = width + 40;
         this._edge.set_position(Math.round(monitor.x + (monitor.width - this._edge.width) / 2), monitor.y);
     }
@@ -492,7 +554,9 @@ export class GridDesktop {
         this.launcher.add_child(this._appGrid);
         this._launcherFooter = new St.Label({style_class: 'notchboard-launcher-subtitle'});
         this.launcher.add_child(this._launcherFooter);
-        Main.layoutManager.addChrome(this.launcher, {affectsInputRegion: true, trackFullscreen: true});
+        // sync() owns visibility. Shell's fullscreen tracking also forces actors
+        // visible on exit, even when their workspace is still occupied.
+        Main.layoutManager.addChrome(this.launcher, {affectsInputRegion: true, trackFullscreen: false});
         // GNOME's window_group also paints wallpaper: the empty-workspace
         // launcher must sit above it. sync() hides it on occupied workspaces.
         Main.uiGroup.set_child_above_sibling(this.launcher, global.window_group);
@@ -586,13 +650,15 @@ export class GridDesktop {
         const wm = global.workspace_manager;
         const active = wm.get_active_workspace_index();
         const occupied = this.owner._occupied();
-        const hidden = Main.sessionMode.isLocked || Main.overview.visible;
+        const notified = this.bell.notifiedCells();
+        const hidden = Main.sessionMode.isLocked || Main.overview.visible || monitor.inFullscreen;
         this._hidePanel();
         this._syncAi();
         this._syncReveal();
         if (Main.sessionMode.isLocked) {
             this.bell.menu.close();
             this.airpods.menu.close();
+            this.power.menu.close();
         }
         this.owner._syncOverlayCompositing();
         const row = Math.floor(active / COLUMNS);
@@ -601,7 +667,7 @@ export class GridDesktop {
         this._mini.destroy_all_children();
         for (let i = firstRow * COLUMNS; i < (firstRow + rows) * COLUMNS; i++) {
             const dot = new St.Widget({width: 8, height: 5,
-                style_class: `notchboard-dot${occupied.has(i) ? ' occupied' : ''}${i === active ? ' active' : ''}`});
+                style_class: `notchboard-dot${occupied.has(i) ? ' occupied' : ''}${notified.has(i) ? ' notified' : ''}${i === active ? ' active' : ''}`});
             dot.set_position(i % COLUMNS * 11, (Math.floor(i / COLUMNS) - firstRow) * 8 + (rows === 2 ? 4 : 0));
             this._mini.add_child(dot);
         }
@@ -610,6 +676,7 @@ export class GridDesktop {
             this._pulseIsland();
         this._lastActive = active;
         this._positionNotch();
+        this.power.position();
         const empty = !occupied.has(active) && !wm.get_active_workspace().list_windows().some(window =>
             !window.is_on_all_workspaces() && !window.is_override_redirect() &&
             (window.get_transient_for() || window.get_window_type() === Meta.WindowType.NORMAL));
@@ -665,9 +732,11 @@ export class GridDesktop {
             GLib.source_remove(this._concealId);
         this._concealId = 0;
         this._edge.destroy();
+        this._ears.destroy();
         this._destroyLauncher();
         this.battery.destroy();
         this.airpods.destroy();
+        this.power.destroy();
         this.bell.destroy();
         this.notch.destroy();
         this._wallClock = this._clockSettings = null;
