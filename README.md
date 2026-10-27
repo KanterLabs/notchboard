@@ -182,8 +182,8 @@ D-Bus session, settings and data. It drives real GTK windows, keyboard and
 pointer input, notifications, a fake EarPort service and hot reloads, and
 saves screenshots. Set `NOTCHBOARD_TEST_TILING=1` or `NOTCHBOARD_TEST_DOCK=1`
 to also run your installed Tiling Assistant or Dash to Dock alongside it.
-`NOTCHBOARD_TEST_SCALE=2` renders the same layout at 2x; the screenshots in
-`docs/assets` are cropped from such a run.
+`NOTCHBOARD_TEST_SCALE=2` renders the same layout at 2x on a light
+background; the screenshots in `docs/assets` are cropped from such a run.
 
 ## License
 

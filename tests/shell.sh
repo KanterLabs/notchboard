@@ -25,8 +25,8 @@ python3 "$repo_dir/scripts/stage.py" "$repo_dir/notchboard@kanterlabs.dev" "$tes
 cp -a "$repo_dir/tests/shell-extension" "$test_dir/data/gnome-shell/extensions/notchboard-test@kanterlabs.dev"
 glib-compile-schemas --strict "$test_dir/data/gnome-shell/extensions/notchboard@kanterlabs.dev/schemas"
 glib-compile-schemas --strict "$test_dir/data/gnome-shell/extensions/notchboard-test@kanterlabs.dev/schemas"
-# NOTCHBOARD_TEST_SCALE=2 renders the same 1280x800 layout at 2x, for
-# README screenshots.
+# NOTCHBOARD_TEST_SCALE=2 renders the same 1280x800 layout at 2x on a light
+# background, so the black islands stand out in README screenshots.
 scale=${NOTCHBOARD_TEST_SCALE:-1}
 if [[ $scale != 1 ]]; then
     cat > "$test_dir/config/monitors.xml" <<EOF
@@ -37,6 +37,7 @@ if [[ $scale != 1 ]]; then
   </logicalmonitor></configuration></monitors>
 EOF
 fi
+export NOTCHBOARD_TEST_SCALE="$scale"
 export NOTCHBOARD_TEST_MONITOR="$((1280 * scale))x$((800 * scale))"
 export NOTCHBOARD_TEST_REPO="$repo_dir"
 export NOTCHBOARD_TEST_DIR="$test_dir"
@@ -60,6 +61,13 @@ dbus-run-session -- bash -c '
     gsettings set org.gnome.desktop.session idle-delay 0
     gsettings set org.gnome.desktop.screensaver lock-enabled false
     gsettings set org.gnome.mutter dynamic-workspaces true
+    if [[ $NOTCHBOARD_TEST_SCALE != 1 ]]; then
+        for key in picture-uri picture-uri-dark; do gsettings set org.gnome.desktop.background $key ""; done
+        gsettings set org.gnome.desktop.background picture-options none
+        gsettings set org.gnome.desktop.background color-shading-type vertical
+        gsettings set org.gnome.desktop.background primary-color "#f3f5f9"
+        gsettings set org.gnome.desktop.background secondary-color "#cdd6e4"
+    fi
     python3 -c '\''import json,os; from gi.repository import Gio; s=Gio.Settings.new("org.gnome.desktop.wm.keybindings"); json.dump({k:s.get_user_value(k).print_(True) if s.get_user_value(k) is not None else None for k in s.props.settings_schema.list_keys()},open(os.environ["NOTCHBOARD_TEST_DIR"]+"/bindings-before.json","w"))'\''
     export WAYLAND_DISPLAY=grid-test-0
     gnome-shell --headless --wayland --no-x11 --virtual-monitor "$NOTCHBOARD_TEST_MONITOR" --wayland-display grid-test-0 > "$NOTCHBOARD_TEST_DIR/shell.log" 2>&1 &
