@@ -9,11 +9,12 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
-import {COLUMNS, nearestEmpty} from './grid.js';
+import {COLUMNS, cellName, nearestEmpty, shortName} from './grid.js';
 import {NotificationBell} from './bell.js';
 import {AirPodsIndicator} from './airpods.js';
 import {BatteryLine} from './battery.js';
 import {PowerIsland} from './power.js';
+import {CodePrompt} from './codePrompt.js';
 
 const DOCK = 'dash-to-dock@micxgx.gmail.com';
 export const EDGE = 2;
@@ -146,7 +147,7 @@ export class GridDesktop {
         // a drawer of extra controls that opens beneath it on hover.
         this.notch = new St.BoxLayout({style_class: 'notchboard-notch', vertical: true,
             reactive: true, track_hover: true});
-        const compact = new St.BoxLayout({style_class: 'notchboard-notch-compact',
+        const compact = this._compact = new St.BoxLayout({style_class: 'notchboard-notch-compact',
             x_align: Clutter.ActorAlign.CENTER});
         this._gridButton = new St.Button({style_class: 'notchboard-notch-main', can_focus: true,
             accessible_name: 'Show workspace grid'});
@@ -177,6 +178,8 @@ export class GridDesktop {
         hide.connect('clicked', () => this.toggleNotch());
         this._drawer.add_child(hide);
         this.notch.add_child(this._drawer);
+        this.codePrompt = new CodePrompt(this);
+        this.notch.add_child(this.codePrompt.actor);
         this._wallClock = new GnomeDesktop.WallClock();
         this._clockSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
         this._connect(this._wallClock, 'notify::clock', () => this._updateClock());
@@ -261,6 +264,8 @@ export class GridDesktop {
         const locked = Main.sessionMode.isLocked;
         this._edge.visible = !locked && this._hidden();
         const show = !locked && (!this._hidden() || this._peek);
+        if (!show)
+            this.codePrompt.dismiss(true);
         if (show === this.revealed)
             return;
         this.revealed = show;
@@ -294,8 +299,10 @@ export class GridDesktop {
             return;
         if (this._peek)
             this._queueConceal();
+        if (this._menuOpen() && this.codePrompt?.active)
+            this.codePrompt.dismiss();
         const open = this.revealed && (this.notch.hover || GLib.get_monotonic_time() < this._pulseUntil) &&
-            !this._menuOpen() && !Main.sessionMode.isLocked;
+            !this._menuOpen() && !this.codePrompt?.active && !this.owner._map && !Main.sessionMode.isLocked;
         if (open === this.expanded)
             return;
         this.expanded = open;
@@ -308,9 +315,11 @@ export class GridDesktop {
             drawer.show();
             const [, target] = drawer.get_preferred_height(-1);
             drawer.set({height: from, opacity: from ? drawer.opacity : 0});
-            drawer.ease({height: target, opacity: 255, duration,
+            // Only the height overshoots; an overshooting opacity wraps and flashes.
+            drawer.ease({height: target, duration,
                 mode: Clutter.AnimationMode.EASE_OUT_BACK,
                 onComplete: () => { drawer.height = -1; }});
+            drawer.ease({opacity: 255, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
         } else {
             drawer.height = from;
             drawer.ease({height: 0, opacity: 0, duration: duration * 0.8,
@@ -342,6 +351,19 @@ export class GridDesktop {
         const twelve = this._clockSettings.get_string('clock-format') === '12h';
         this._clockLabel.text = now.format(twelve ? '%-l:%M %p' : '%H:%M');
         this._positionNotch();
+    }
+
+    // Where the map hangs: just beneath the notch's top row, or beneath a code
+    // prompt it is showing. A hidden notch leaves only a margin.
+    mapAnchor() {
+        const monitor = Main.layoutManager.primaryMonitor;
+        if (!this.revealed || !this.notch.visible)
+            return monitor.y + 16;
+        const [, compact] = this._compact.get_preferred_height(-1);
+        const [, full] = this.notch.get_preferred_height(-1);
+        const node = this.notch.get_theme_node();
+        const below = this.codePrompt?.active ? full : compact + node.get_padding(St.Side.TOP) + node.get_padding(St.Side.BOTTOM);
+        return Math.round(monitor.y + below + 10);
     }
 
     _positionNotch() {
@@ -493,6 +515,8 @@ export class GridDesktop {
         const favoriteIds = this._favorites.getFavorites().map(app => app.get_id());
         const usageIds = Shell.AppUsage.get_default().get_most_used().map(app => app.get_id());
         const priority = [...new Set([...favoriteIds, ...usageIds])];
+        // Without a search the launcher shows only these, not alphabetical filler.
+        this._suggested = new Set(priority);
         this.apps.sort((a, b) => {
             const rank = app => { const i = priority.indexOf(app.get_id()); return i < 0 ? 10000 : i; };
             return rank(a) - rank(b) || a.get_name().localeCompare(b.get_name());
@@ -515,7 +539,6 @@ export class GridDesktop {
         titles.add_child(this._launcherTitle);
         titles.add_child(this._launcherSubtitle);
         header.add_child(titles);
-        header.add_child(this._button('Reset grid', 'Pack windows and remove unused rows', () => this.owner.resetGrid()));
         this.launcher.add_child(header);
         this.search = new St.Entry({hint_text: 'Search your apps…', can_focus: true,
             style_class: 'notchboard-search', x_expand: true});
@@ -574,7 +597,14 @@ export class GridDesktop {
                 ...(info?.get_keywords() ?? [])].join(' ').toLocaleLowerCase();
             return query.split(/\s+/).every(word => haystack.includes(word));
         });
-        this.results = matches.slice(0, this._columns * this._rows);
+        // Favourites and frequently used apps only; a fresh session with
+        // neither falls back to the alphabetical list.
+        const suggested = matches.filter(app => this._suggested.has(app.get_id()));
+        const listed = query || suggested.length === 0 ? matches : suggested;
+        this.results = listed.slice(0, this._columns * this._rows);
+        // Searching keeps every row so the panel does not jump with each key.
+        const rows = query ? this._rows : Math.max(1, Math.ceil(this.results.length / this._columns));
+        this._appGrid.height = rows * 100 + (rows - 1) * 10;
         this._selected = 0;
         this._appButtons = [];
         for (const [index, app] of this.results.entries()) {
@@ -586,7 +616,7 @@ export class GridDesktop {
             const icon = app.create_icon_texture(42);
             icon.x_align = Clutter.ActorAlign.CENTER;
             content.add_child(icon);
-            content.add_child(new St.Label({text: app.get_name(), style_class: 'notchboard-app-label',
+            content.add_child(new St.Label({text: shortName(app.get_name()), style_class: 'notchboard-app-label',
                 x_align: Clutter.ActorAlign.CENTER, width: this._tileWidth - 16}));
             button.set_child(content);
             button.connect('clicked', () => this.launch(app));
@@ -671,7 +701,7 @@ export class GridDesktop {
             dot.set_position(i % COLUMNS * 11, (Math.floor(i / COLUMNS) - firstRow) * 8 + (rows === 2 ? 4 : 0));
             this._mini.add_child(dot);
         }
-        this._position.text = `${row + 1} · ${active % COLUMNS + 1}    ${occupied.has(active) ? 'Window' : 'New space'}`;
+        this._position.text = `${cellName(active)}${occupied.has(active) ? '' : '  ·  Empty'}`;
         if (this._lastActive !== null && this._lastActive !== active)
             this._pulseIsland();
         this._lastActive = active;
@@ -691,7 +721,7 @@ export class GridDesktop {
         }
         if (!this.launcher)
             this._buildLauncher(monitor);
-        this._launcherSubtitle.text = `Workspace ${row + 1}, ${active % COLUMNS + 1}  ·  Choose an app to begin`;
+        this._launcherSubtitle.text = `${cellName(active)}  ·  Choose an app to begin`;
         const justAppeared = !this.launcher.visible;
         if (justAppeared)
             this.search.set_text('');
@@ -738,6 +768,7 @@ export class GridDesktop {
         this.airpods.destroy();
         this.power.destroy();
         this.bell.destroy();
+        this.codePrompt.destroy();
         this.notch.destroy();
         this._wallClock = this._clockSettings = null;
         for (const [data, original] of this._panelState?.struts ?? []) {

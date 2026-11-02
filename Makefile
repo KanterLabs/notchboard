@@ -16,7 +16,7 @@ restore:
 
 ## Pure-JS grid tests and schema check
 test:
-	node --test tests/grid.test.mjs
+	node --test tests/*.test.mjs
 	glib-compile-schemas --strict --dry-run $(UUID)/schemas
 
 ## Real headless GNOME Shell integration suite

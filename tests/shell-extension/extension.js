@@ -8,6 +8,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import {checkCodes} from './codes.js';
 
 const wait = ms => new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
     resolve();
@@ -270,6 +271,7 @@ export default class GridTest extends Extension {
             bell._ringGeneration === ringsCritical, 'Critical alerts still pop up as banners');
         alertSource.destroy(MessageTray.NotificationDestroyedReason.SOURCE_CLOSED);
         await wait(600);
+        await checkCodes({desktop, check, wait, clickActor, pointer, capture});
         const center = Main.layoutManager.primaryMonitor;
         const movePointer = async (x, y) => {
             pointer.notify_absolute_motion(GLib.get_monotonic_time(), x, y);
@@ -377,6 +379,8 @@ export default class GridTest extends Extension {
         Main.osdWindowManager.showAll(new Gio.ThemedIcon({name: 'display-brightness-symbolic'}), null, 0.4, 1);
         await wait(200);
         check(osd.visible && !power._level.visible, 'Other OSDs stay GNOME’s own');
+        desktop.battery.setReading({percentage: 100, state: 4, timeToEmpty: 0, timeToFull: 0});
+        await wait(100);
         const pillWidth = power.notch.width;
         check(!power._nowPlaying.visible && !power._mediaCard.visible,
             'With nothing playing the pill shows only the power icon, no volume');
@@ -402,7 +406,7 @@ export default class GridTest extends Extension {
         power._syncMedia();
         await wait(400);
         check(!power._nowPlaying.visible && power._mediaCard.visible && Math.abs(power.notch.width - pillWidth) <= 1,
-            'Pausing folds the track out of the pill but keeps it in the expanded island');
+            `Pausing folds the track out of the pill but keeps it in the expanded island: playing=${power._nowPlaying.visible}, card=${power._mediaCard.visible}, width=${power.notch.width}, idle=${pillWidth}`);
         power._media = realMedia;
         power._syncMedia();
         Main.osdWindowManager.hideAll();
@@ -413,7 +417,7 @@ export default class GridTest extends Extension {
         const [, islandY] = power.notch.get_transformed_position();
         check(battery.track.visible && power.notch.get_last_child() === battery.track &&
             !desktop.notch.contains(battery.track) && power.menu.actor.contains(battery.label) &&
-            Math.abs(battery.fill.width - battery.track.width / 2) <= 1 &&
+            Math.abs(battery.fill.get_transformed_size()[0] - battery.track.get_transformed_size()[0] / 2) <= 1 &&
             battery.track.width >= power.notch.width - 40 &&
             trackY + battery.track.height <= islandY + power.notch.height &&
             battery.label.text === 'Battery 50% · 1 h 30 min left',
@@ -421,7 +425,8 @@ export default class GridTest extends Extension {
         await capture('battery-line');
         battery.setReading({percentage: 15, state: 2, timeToEmpty: 1200, timeToFull: 0});
         await wait(100);
-        check(battery.fill.has_style_class_name('low') && Math.abs(battery.fill.width - battery.track.width * 0.15) <= 1,
+        check(battery.fill.has_style_class_name('low') &&
+            Math.abs(battery.fill.get_transformed_size()[0] - battery.track.get_transformed_size()[0] * 0.15) <= 1,
             `Battery line turns red when low: ${battery.fill.get_style_class_name()} ${battery.fill.width}/${battery.track.width}`);
         battery.setReading({percentage: 60, state: 1, timeToEmpty: 0, timeToFull: 1800});
         await wait(100);
@@ -600,7 +605,7 @@ export default class GridTest extends Extension {
         grid._navigate('up');
         await wait(25);
         grid._navigate('right');
-        await wait(250);
+        await wait(400);
         check(wm.get_active_workspace_index() === 1 && !grid._slide, 'Rapid direction changes finish without a queued slide');
         grid._navigate('left', true);
         await wait(220);
@@ -661,6 +666,17 @@ export default class GridTest extends Extension {
         check(grid._map?.visible && grid._mapPinned, 'Super-toggled grid stays open after key release');
         check(grid._map.opacity === 255 && grid._map.get_paint_opacity() === 255,
             'Interactive grid is fully painted rather than transparent');
+        await clickActor(grid._map.get_first_child());
+        check(grid._map?.visible && grid._mapPinned,
+            'Clicking the map heading keeps the grid open');
+        const mapTile = grid._map.get_children().find(actor => actor instanceof St.Button);
+        await clickActor(mapTile);
+        check(grid._map?.visible && grid._mapPinned && wm.get_active_workspace_index() === 0,
+            'Clicking a map tile navigates without dismissing the grid');
+        await clickActor(desktop._gridButton);
+        check(!grid._map && !grid._mapPinned, 'Notch grid button closes the map without reopening it');
+        await clickActor(desktop._gridButton);
+        check(grid._map?.visible && grid._mapPinned, 'Notch grid button still opens the map');
         const fullscreenWindow = [...grid._windows.keys()][0];
         const fullscreenWorkspace = fullscreenWindow.get_workspace();
         fullscreenWorkspace.activate_with_focus(fullscreenWindow, global.get_current_time());
@@ -698,13 +714,14 @@ export default class GridTest extends Extension {
         await wait(40);
         pointer.notify_button(GLib.get_monotonic_time(), Clutter.BUTTON_PRIMARY, Clutter.ButtonState.RELEASED);
         await wait(220);
-        check(grid._map?.visible && grid._mapPinned, 'Clicking an app leaves the toggled grid open');
+        check(!grid._map && !grid._mapPinned, 'Clicking a fullscreen app dismisses the grid');
+        grid.toggleGrid();
         await clickActor(this._fakeAI);
-        check(this._fakeAI.menu.isOpen && grid._map?.visible && grid._mapPinned,
-            'Notch AI menu opens above fullscreen without dismissing the grid');
+        check(this._fakeAI.menu.isOpen && !grid._map && !grid._mapPinned,
+            'Clicking outside dismisses the grid and still opens the notch AI menu');
         await clickActor(this._fakeAiItem);
-        check(this._fakeAiMenuActions === 2 && grid._map?.visible && grid._mapPinned,
-            'AI menu actions work while the fullscreen grid stays pinned');
+        check(this._fakeAiMenuActions === 2 && !grid._map,
+            'AI menu actions still work after outside-click dismissal');
         fullscreenWindow.unmake_fullscreen();
         await wait(350);
         check(fullscreenLauncherShows === 0 && !desktop.launcher.visible,
@@ -726,6 +743,14 @@ export default class GridTest extends Extension {
             global.display.focus_window === fullscreenWindow &&
             (!fullscreenExitFocus || !desktop.launcher.contains(fullscreenExitFocus)),
         'Leaving fullscreen preserves the original workspace and application focus');
+        grid.toggleGrid();
+        pointer.notify_absolute_motion(GLib.get_monotonic_time(), monitor.x + 30, monitor.y + 120);
+        await wait(80);
+        pointer.notify_button(GLib.get_monotonic_time(), Clutter.BUTTON_PRIMARY, Clutter.ButtonState.PRESSED);
+        await wait(40);
+        pointer.notify_button(GLib.get_monotonic_time(), Clutter.BUTTON_PRIMARY, Clutter.ButtonState.RELEASED);
+        await wait(220);
+        check(!grid._map && !grid._mapPinned, 'Clicking an ordinary app dismisses the grid');
         grid.toggleGrid();
         // A different row viewport rebuilds the map; pin state must survive it.
         grid._setCount(15);
@@ -834,7 +859,7 @@ export default class GridTest extends Extension {
             dir.get_child('schemas').make_directory(null);
             dir.get_child('icons').make_directory(null);
             const original = extension.dir.get_child('releases').get_child(originalManifest.revision);
-            for (const file of ['runtime.js', 'desktop.js', 'bell.js', 'airpods.js', 'battery.js', 'power.js', 'grid.js', 'stylesheet.css', 'metadata.json',
+            for (const file of ['runtime.js', 'desktop.js', 'bell.js', 'codes.js', 'codePrompt.js', 'airpods.js', 'battery.js', 'power.js', 'grid.js', 'stylesheet.css', 'metadata.json',
                 'schemas/org.gnome.shell.extensions.notchboard.gschema.xml', 'schemas/gschemas.compiled',
                 'icons/notchboard-bell-symbolic.svg', 'icons/notchboard-bell-muted-symbolic.svg'])
                 original.get_child(file).copy(dir.get_child(file), Gio.FileCopyFlags.NONE, null, null);
@@ -863,12 +888,22 @@ Notchboard.prototype.enable = function () {
         const firstStatus = await dbusCall('GetStatus');
         check(firstStatus.active && firstStatus.revision === originalManifest.revision,
             'Live status identifies the running release rather than installed metadata');
+        const reloadSource = new MessageTray.Source({title: 'Code lifecycle test'});
+        Main.messageTray.add(reloadSource);
+        reloadSource.addNotification(new MessageTray.Notification({source: reloadSource,
+            title: 'Verification code', body: 'Use 778811 to continue.'}));
+        await wait(100);
+        const oldPrompt = desktop.codePrompt;
+        check(oldPrompt.active && !!oldPrompt._timer, 'A code offer is active before hot reload');
         const newManifest = stageTestRelease('hot-update');
         const hotStatus = await dbusCall('Reload');
         await wait(300);
         const updated = loader._runtime;
         check(updated !== grid && hotStatus.active && hotStatus.revision === newManifest.revision,
             'D-Bus update replaces the runtime in the same Shell session');
+        check(oldPrompt._destroyed && !oldPrompt.active && !oldPrompt._timer && !oldPrompt._code &&
+            !updated._desktop.codePrompt.active, 'Hot reload clears pending code timers without replaying old notifications');
+        reloadSource.destroy(MessageTray.NotificationDestroyedReason.SOURCE_CLOSED);
         check(updated.reloadSentinel.join(',') === 'hot-update-grid,hot-update-desktop',
             'Hot update refreshes both relative dependency modules');
         check(updated._desktop.notch.get_theme_node().get_border_width(St.Side.BOTTOM) === 4,

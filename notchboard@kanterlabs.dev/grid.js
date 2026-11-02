@@ -33,3 +33,13 @@ export function isGridShortcut(accel) {
         parts.includes('<super>') &&
         parts.every(p => ['<super>', '<shift>', 'left', 'right', 'up', 'down'].includes(p));
 }
+
+// One wording for a cell everywhere: the notch drawer, launcher and map.
+export function cellName(index) {
+    return `Row ${Math.floor(index / COLUMNS) + 1}, column ${index % COLUMNS + 1}`;
+}
+
+// "Brave Web Browser" fits a launcher tile as "Brave".
+export function shortName(name) {
+    return name.replace(/\s+(?:Web\s+)?Browser$/i, '') || name;
+}

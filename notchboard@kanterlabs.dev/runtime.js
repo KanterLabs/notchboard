@@ -2,6 +2,7 @@ import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
+import Graphene from 'gi://Graphene';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
@@ -153,11 +154,29 @@ export default class Notchboard extends Extension {
                 const type = event.type();
                 if (type === Clutter.EventType.KEY_PRESS && this._superHeld)
                     this._restoreSuperChord();
-                if (this._map && event.type() === Clutter.EventType.KEY_PRESS &&
+                if (this._map && type === Clutter.EventType.KEY_PRESS &&
                     event.get_key_symbol() === Clutter.KEY_Escape)
                     this._hideMap(true);
-                // A toggled map stays pinned while interacting with apps or
-                // the notch. Only an explicit toggle or Escape dismisses it.
+                if (this._map && (type === Clutter.EventType.BUTTON_PRESS ||
+                    type === Clutter.EventType.TOUCH_BEGIN)) {
+                    const [x, y] = event.get_coords();
+                    const contains = actor => {
+                        if (!actor?.is_mapped())
+                            return false;
+                        const [left, top] = actor.get_transformed_position();
+                        const [width, height] = actor.get_transformed_size();
+                        return x >= left && x < left + width && y >= top && y < top + height;
+                    };
+                    // The grid button handles its own toggle on release. Closing
+                    // it here would make that same click open it again.
+                    if (!contains(this._map) && !contains(this._desktop?._gridButton)) {
+                        const outsideLayer = event.get_source() === this._mapBackdrop;
+                        this._hideMap(true);
+                        if (outsideLayer)
+                            return Clutter.EVENT_STOP;
+                    }
+                }
+                // Other Shell controls still receive the click that closes the map.
                 return Clutter.EVENT_PROPAGATE;
             });
             const arrange = () => {
@@ -488,6 +507,9 @@ export default class Notchboard extends Extension {
         const dx = Math.sign(to % COLUMNS - from % COLUMNS);
         const dy = Math.sign(Math.floor(to / COLUMNS) - Math.floor(from / COLUMNS));
         const slide = this._slide = {actors: [], done};
+        const {EASE_IN_OUT_CUBIC, EASE_OUT_QUAD, EASE_IN_OUT_QUAD} = Clutter.AnimationMode;
+        // Each step of a chained ease, unless the slide was settled meanwhile.
+        const then = step => () => { if (this._slide === slide) step(); };
         global.compositor.disable_unredirect();
         try {
             for (const monitor of Main.layoutManager.monitors) {
@@ -495,16 +517,30 @@ export default class Notchboard extends Extension {
                     width: monitor.width, height: monitor.height, clip_to_allocation: true});
                 slide.actors.push(container);
                 Main.uiGroup.insert_child_above(container, this._desktop?.launcher ?? global.window_group);
+                // Screens move like cards: they pull back a little, travel along
+                // a strip over a dimmed wallpaper, and settle back to full size.
+                const shade = new St.Widget({style: 'background-color: #000000;', opacity: 0,
+                    width: monitor.width, height: monitor.height});
+                const zoom = new Clutter.Actor({width: monitor.width, height: monitor.height,
+                    pivot_point: new Graphene.Point({x: 0.5, y: 0.5})});
+                const strip = new Clutter.Actor();
+                container.add_child(shade);
+                container.add_child(zoom);
+                zoom.add_child(strip);
                 const old = new WorkspaceGroup(wm.get_workspace_by_index(from), monitor, null);
                 const next = new WorkspaceGroup(wm.get_workspace_by_index(to), monitor, null);
-                container.add_child(old);
-                container.add_child(next);
-                const x = dx * (monitor.width + 20);
-                const y = dy * (monitor.height + 20);
+                strip.add_child(old);
+                strip.add_child(next);
+                const x = dx * (monitor.width + 48);
+                const y = dy * (monitor.height + 48);
                 next.set_position(x, y);
-                old.ease({translation_x: -x, translation_y: -y, duration,
-                    mode: Clutter.AnimationMode.EASE_OUT_CUBIC});
-                next.ease({x: 0, y: 0, duration, mode: Clutter.AnimationMode.EASE_OUT_CUBIC});
+                strip.ease({translation_x: -x, translation_y: -y, duration, mode: EASE_IN_OUT_CUBIC});
+                zoom.ease({scale_x: 0.92, scale_y: 0.92, duration: duration / 2, mode: EASE_OUT_QUAD,
+                    onComplete: then(() => zoom.ease({scale_x: 1, scale_y: 1,
+                        duration: duration / 2, mode: EASE_IN_OUT_QUAD}))});
+                shade.ease({opacity: 90, duration: duration / 2, mode: EASE_OUT_QUAD,
+                    onComplete: then(() => shade.ease({opacity: 0,
+                        duration: duration / 2, mode: EASE_IN_OUT_QUAD}))});
             }
             slide.timeout = this._later(duration + 20, () => this._finishSlide());
         } catch (error) {
@@ -621,6 +657,8 @@ export default class Notchboard extends Extension {
         this._mapPinned = false;
         this._cancel(this._mapTimer);
         this._mapTimer = 0;
+        this._mapBackdrop?.destroy();
+        this._mapBackdrop = null;
         if (!this._map)
             return;
         const actor = this._map;
@@ -633,9 +671,24 @@ export default class Notchboard extends Extension {
             destroy();
         } else {
             this._fading.add(actor);
-            actor.ease({opacity: 0, translation_y: 8, duration: this._duration() ? 100 : 0,
-                onComplete: destroy});
+            // Contents fade first, then the empty black shape folds back up
+            // into the notch it came from.
+            const duration = this._duration() ? 190 : 0;
+            for (const child of actor.get_children()) {
+                child.remove_all_transitions();
+                child.ease({opacity: 0, duration: duration / 2, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
+            }
+            actor.remove_all_transitions();
+            actor.ease({scale_x: this._notchScale(actor.width), scale_y: 0.1, translation_y: -10,
+                duration, mode: Clutter.AnimationMode.EASE_IN_CUBIC, onComplete: destroy});
+            actor.ease({opacity: 0, duration, mode: Clutter.AnimationMode.EASE_IN_QUAD});
         }
+    }
+
+    // Horizontal scale at which a map of this width matches the notch.
+    _notchScale(width) {
+        const notch = this._desktop?.revealed && this._desktop.notch;
+        return notch?.visible ? Math.min(1, notch.width / width) : 0.3;
     }
 
     _showMap() {
@@ -648,7 +701,9 @@ export default class Notchboard extends Extension {
         const rows = Math.min(3, totalRows);
         const firstRow = Math.min(Math.max(0, Math.floor(active / COLUMNS) - 1), totalRows - rows);
         const signature = `${firstRow}:${rows}:${wm.n_workspaces}:${[...this._windows.keys()].map(w => `${w.get_stable_sequence()}@${w.get_workspace()?.index()}`).join(',')}`;
-        if (this._map && this._mapSignature !== signature) {
+        // A rebuild while navigating swaps contents in place, without regrowing.
+        const rebuild = !!this._map && this._mapSignature !== signature;
+        if (rebuild) {
             const pinned = this._mapPinned;
             this._hideMap(true);
             this._mapPinned = pinned;
@@ -659,21 +714,32 @@ export default class Notchboard extends Extension {
         const inset = 18;
         if (!this._map) {
             this._mapSignature = signature;
+            // Client clicks bypass stage capture on Wayland. Cover the desktop
+            // while the map is open, below the islands and other Shell controls.
+            this._mapBackdrop = new St.Widget({reactive: true,
+                width: global.stage.width, height: global.stage.height});
+            Main.layoutManager.addTopChrome(this._mapBackdrop,
+                {affectsInputRegion: true, trackFullscreen: false});
+            Main.uiGroup.set_child_above_sibling(this._mapBackdrop, global.top_window_group);
             const width = inset * 2 + tileW * COLUMNS + gap * (COLUMNS - 1);
             const height = inset * 2 + 32 + rows * tileH + gap * (rows - 1) + 28;
-            this._map = new St.Widget({style_class: 'notchboard-map', reactive: false,
-                width, height, opacity: 255, translation_y: 8});
+            // Hung beneath the notch and grown out of it, so the map reads as
+            // the large form of the notch's grid dots.
+            const grow = !rebuild && this._duration();
+            this._map = new St.Widget({style_class: 'notchboard-map', reactive: true,
+                width, height, pivot_point: new Graphene.Point({x: 0.5, y: 0})});
             const map = this._map;
             this._syncOverlayCompositing();
             // Keep navigation above fullscreen windows and application popups.
             // Session-mode changes still explicitly hide it when locked.
             Main.layoutManager.addTopChrome(map, {affectsInputRegion: true, trackFullscreen: false});
             map.set_position(Math.round(monitor.x + (monitor.width - width) / 2),
-                Math.round(monitor.y + monitor.height - height - 64));
+                this._desktop?.mapAnchor() ?? monitor.y + 16);
             const heading = new St.Label({style_class: 'notchboard-heading',
                 text: `NOTCHBOARD   ·   ${wm.n_workspaces} spaces`});
             map.add_child(heading);
             heading.set_position(inset, inset);
+            const tiles = [];
             for (let i = firstRow * COLUMNS; i < (firstRow + rows) * COLUMNS; i++) {
                 const workspace = wm.get_workspace_by_index(i);
                 const window = workspace.list_windows().find(w => this._eligible(w));
@@ -683,6 +749,7 @@ export default class Notchboard extends Extension {
                 tile.set_position(inset + (i % COLUMNS) * (tileW + gap),
                     inset + 32 + (Math.floor(i / COLUMNS) - firstRow) * (tileH + gap));
                 map.add_child(tile);
+                tiles.push([tile, i]);
                 const contents = new St.Widget({width: tileW, height: tileH, clip_to_allocation: true});
                 tile.set_child(contents);
                 if (window) {
@@ -717,10 +784,13 @@ export default class Notchboard extends Extension {
                 reactive: false, width: tileW, height: tileH});
             map.add_child(this._selection);
             const hint = new St.Label({style_class: 'notchboard-hint',
-                text: `Super + ↑ ↓ ← →   ·   Shift carries   ·   Rows ${firstRow + 1}–${firstRow + rows}`});
+                text: 'Super + ↑ ↓ ← →   ·   Shift carries the window'});
             map.add_child(hint);
             hint.set_position(inset, height - inset - 15);
-            map.ease({translation_y: 0, duration: this._duration() ? 90 : 0});
+            if (grow)
+                this._growMap(map, tiles, [heading, hint], active);
+            // The map shows the position, so the notch drawer stays shut.
+            this._desktop?._syncIsland();
             map.queue_redraw();
         }
         const x = inset + active % COLUMNS * (tileW + gap);
@@ -729,12 +799,39 @@ export default class Notchboard extends Extension {
             this._selection.set_position(x, y);
             this._selection.positioned = true;
         } else {
-            this._selection.ease({x, y, duration: this._duration(),
-                mode: Clutter.AnimationMode.EASE_OUT_CUBIC});
+            this._selection.ease({x, y, duration: this._duration() ? 260 : 0,
+                mode: Clutter.AnimationMode.EASE_OUT_BACK});
         }
         this._cancel(this._mapTimer);
         this._mapShownAt = GLib.get_monotonic_time();
         this._checkMapHeld();
+    }
+
+    // The notch stretches into the map like a Dynamic Island, then the cells
+    // pop in, rippling out from the active one. Only geometry overshoots:
+    // opacity is a byte, and an overshooting curve wraps it and flashes.
+    _growMap(map, tiles, labels, active) {
+        const {EASE_OUT_BACK, EASE_OUT_QUAD} = Clutter.AnimationMode;
+        map.set({scale_x: this._notchScale(map.width), scale_y: 0.1, translation_y: -10, opacity: 0});
+        map.ease({scale_x: 1, scale_y: 1, translation_y: 0, duration: 340, mode: EASE_OUT_BACK});
+        map.ease({opacity: 255, duration: 90, mode: EASE_OUT_QUAD});
+        for (const [tile, index] of tiles) {
+            const distance = Math.abs(Math.floor(index / COLUMNS) - Math.floor(active / COLUMNS)) +
+                Math.abs(index % COLUMNS - active % COLUMNS);
+            const delay = 120 + distance * 40;
+            tile.set({pivot_point: new Graphene.Point({x: 0.5, y: 0.5}), scale_x: 0.8, scale_y: 0.8, opacity: 0});
+            tile.ease({scale_x: 1, scale_y: 1, delay, duration: 300, mode: EASE_OUT_BACK});
+            tile.ease({opacity: 255, delay, duration: 160, mode: EASE_OUT_QUAD});
+        }
+        // The ring lands on the active cell just after it appears.
+        const ring = this._selection;
+        ring.set({pivot_point: new Graphene.Point({x: 0.5, y: 0.5}), scale_x: 1.2, scale_y: 1.2, opacity: 0});
+        ring.ease({scale_x: 1, scale_y: 1, delay: 180, duration: 320, mode: EASE_OUT_BACK});
+        ring.ease({opacity: 255, delay: 180, duration: 140, mode: EASE_OUT_QUAD});
+        for (const label of labels) {
+            label.opacity = 0;
+            label.ease({opacity: 255, delay: 160, duration: 200, mode: EASE_OUT_QUAD});
+        }
     }
 
     _checkMapHeld() {

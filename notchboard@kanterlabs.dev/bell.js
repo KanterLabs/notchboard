@@ -8,6 +8,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Util from 'resource:///org/gnome/shell/misc/util.js';
+import {verificationCode} from './codes.js';
 
 const POLICIES = [MessageTray.NotificationPolicy, MessageTray.NotificationGenericPolicy,
     MessageTray.NotificationApplicationPolicy];
@@ -88,6 +89,7 @@ export class NotificationBell {
         this._desktop = desktop;
         this._sources = new Set();
         this._fresh = new Set();
+        this._offeredCodes = new WeakMap();
         this._ringGeneration = 0;
         this.unseen = 0;
         holdBanners();
@@ -278,6 +280,8 @@ export class NotificationBell {
         this._badge.text = this.unseen > 9 ? '9+' : String(this.unseen);
         this._badge.visible = this.unseen > 0;
         const muted = !this._settings.get_boolean('show-banners');
+        if (muted)
+            this._desktop.codePrompt?.dismiss(true);
         this._icon.gicon = muted ? MUTED : BELL;
         if (this.unseen > 0)
             this.button.add_style_class_name('unseen');
@@ -344,6 +348,10 @@ export class NotificationBell {
             return;
         notification.playSound();
         this.ring();
+        const code = verificationCode(notification.title, plain(notification));
+        if (code && this._offeredCodes.get(notification) !== code &&
+            this._desktop.codePrompt?.offer(notification, code))
+            this._offeredCodes.set(notification, code);
     }
 
     ring() {

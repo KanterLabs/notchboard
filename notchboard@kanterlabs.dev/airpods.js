@@ -465,7 +465,9 @@ export class AirPodsIndicator {
         peek.show();
         peek.scale_x = peek.scale_y = 0.6;
         const duration = this._desktop.owner._duration() ? 260 : 0;
-        peek.ease({opacity: 255, scale_x: 1, scale_y: 1, duration, mode: Clutter.AnimationMode.EASE_OUT_BACK});
+        // Only the scale overshoots; an overshooting opacity wraps and flashes.
+        peek.ease({scale_x: 1, scale_y: 1, duration, mode: Clutter.AnimationMode.EASE_OUT_BACK});
+        peek.ease({opacity: 255, duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD});
         if (this._peekId)
             GLib.source_remove(this._peekId);
         this._peekId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, PEEK_MS, () => {

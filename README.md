@@ -62,8 +62,9 @@ window, setting, shortcut, dock and the top bar back the way they were.
 - **Spatial navigation.** `Super` + arrows slides to the neighbouring cell;
   add `Shift` to carry the focused window with you. Edges and occupied cells
   give a small nudge instead of wrapping.
-- **Live map.** Tap `Super` for a map of every cell with live thumbnails;
-  click one to jump there.
+- **Live map.** Tap `Super` and the notch grows into a map of every cell with
+  live thumbnails; click one to jump there, or click outside the map to close
+  it.
 - **Launcher on empty screens.** An empty cell shows your favourite and
   most-used apps with search, so a new screen is always one keystroke from
   something useful.
@@ -81,6 +82,10 @@ window, setting, shortcut, dock and the top bar back the way they were.
 - **Notifications without pop-ups.** Banners go to a bell instead. It wiggles
   and counts what you missed, and a click shows the list. Critical alerts,
   such as low battery, still pop up.
+- **Copy sign-in codes.** A verification code in an incoming notification
+  briefly expands the notch with a **Copy code** button, a countdown and a
+  “Copied” confirmation. Works with Gmail in Chrome when the code is in its
+  desktop notification preview.
 - **One panel indicator of your choice** can live in the notch (by default the
   AI Usage indicator, if installed).
 
@@ -144,7 +149,7 @@ gsettings --schemadir $schemas list-recursively org.gnome.shell.extensions.notch
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `animation-ms` | `140` | Slide duration; GNOME's reduced-motion setting is respected |
+| `animation-ms` | `280` | Workspace switch duration; GNOME's reduced-motion setting is respected |
 | `notch-hidden` | `false` | Hide both islands until the pointer touches their edge |
 | `hosted-indicator` | `'ai-usage@laptopconfig'` | Panel indicator shown in the notch, by status-area key; empty for none |
 | `grid-*` | see [Shortcuts](#shortcuts) | Keybindings |

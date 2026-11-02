@@ -1,28 +1,28 @@
+/* The map and launcher share the islands' palette: pure black, iOS greys. */
 .notchboard-map {
-    background-color: rgba(20, 28, 43, 0.96);
-    border: 1px solid rgba(215, 231, 255, 0.25);
-    border-radius: 22px;
+    background-color: #000000;
+    border-radius: 28px;
+    /* Keeps its edge visible over the black launcher. */
+    border: 1px solid rgba(255, 255, 255, 0.12);
     padding: 18px;
-    color: #f1f5ff;
-    box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.3);
+    color: #ffffff;
+    box-shadow: 0 14px 40px 0 rgba(0, 0, 0, 0.6);
 }
-.notchboard-heading { font-size: 14px; font-weight: bold; color: #e8f0ff; }
-.notchboard-hint { font-size: 11px; color: #b4c4da; }
+.notchboard-heading { font-size: 13px; font-weight: bold; color: #ffffff; }
+.notchboard-hint { font-size: 11px; color: #8e8e93; }
 .notchboard-cell {
-    background-color: rgba(99, 130, 172, 0.14);
-    border: 1px solid rgba(180, 204, 236, 0.2);
-    border-radius: 10px;
+    background-color: #1c1c1e;
+    border-radius: 14px;
     padding: 0;
 }
-.notchboard-cell:hover { background-color: rgba(130, 178, 238, 0.27); }
+.notchboard-cell:hover { background-color: #2c2c2e; }
 .notchboard-selection {
-    border: 2px solid #a2ccff;
-    border-radius: 10px;
-    background-color: rgba(130, 185, 255, 0.1);
-    box-shadow: 0 0 12px 0 rgba(143, 194, 255, 0.22);
+    border: 2px solid #ffffff;
+    border-radius: 14px;
+    background-color: rgba(255, 255, 255, 0.06);
 }
-.notchboard-title { font-size: 11px; color: #e8f0ff; }
-.notchboard-empty { color: #9fadc1; font-size: 12px; }
+.notchboard-title { font-size: 11px; color: #ffffff; }
+.notchboard-empty { color: #8e8e93; font-size: 12px; }
 
 /* Dynamic Island: pure black, hung from the top edge like a notch. Ears drawn
    beside it curve it into the bezel, so it needs no shadow. */
@@ -77,6 +77,25 @@
 .notchboard-battery-fill.charging { background-color: #30d158; }
 .notchboard-battery-fill.low { background-color: #ff3b30; }
 .notchboard-notch.alert { box-shadow: 0 0 16px 2px rgba(255, 59, 48, 0.6); }
+
+/* Verification codes expand beneath the existing clock and indicators. */
+.notchboard-code { padding: 6px 6px 10px; spacing: 10px; color: #ffffff; }
+.notchboard-code-source { spacing: 8px; }
+.notchboard-code-source-name { font-size: 12px; font-weight: bold; }
+.notchboard-code-caption { font-size: 11px; color: #8e8e93; }
+.notchboard-code-row { spacing: 12px; }
+.notchboard-code-digit { font-family: monospace; font-size: 26px; font-weight: bold; }
+.notchboard-code-copy {
+    padding: 8px 14px; border-radius: 17px; background-color: #ffffff;
+    color: #000000; font-size: 13px; font-weight: bold; transition-duration: 180ms;
+}
+.notchboard-code-copy:hover, .notchboard-code-copy:focus { background-color: #d8d8dc; }
+.notchboard-code-copy.copied { background-color: #30d158; color: #000000; }
+.notchboard-code-footer { spacing: 8px; }
+.notchboard-code-track { background-color: #242426; border-radius: 1px; }
+.notchboard-code-fill { background-color: #8e8e93; border-radius: 1px; }
+.notchboard-code-dismiss { padding: 3px 6px; border-radius: 8px; font-size: 11px; color: #8e8e93; }
+.notchboard-code-dismiss:hover, .notchboard-code-dismiss:focus { background-color: #242426; color: #ffffff; }
 
 /* Notification bell: grey when nothing is missed, white with a red count. */
 .notchboard-bell { min-width: 26px; height: 24px; padding: 0 6px; border-radius: 12px; margin-right: 2px; }
@@ -255,48 +274,46 @@
 .notchboard-power-choice.restart:hover, .notchboard-power-choice.restart:focus { background-color: #409cff; }
 .notchboard-power-choice.logout:hover, .notchboard-power-choice.logout:focus { background-color: #636366; }
 .notchboard-action {
-    color: #dceaff;
-    background-color: rgba(136, 174, 229, 0.12);
-    border-radius: 9px;
-    padding: 7px 11px;
+    color: #ffffff;
+    background-color: #1c1c1e;
+    border-radius: 13px;
+    padding: 7px 12px;
     font-size: 12px;
     transition-duration: 100ms;
 }
-.notchboard-action:hover, .notchboard-action:focus {
-    background-color: rgba(136, 185, 255, 0.28);
-}
+.notchboard-action:hover, .notchboard-action:focus { background-color: #3a3a3c; }
 .notchboard-launcher {
-    spacing: 20px;
-    padding: 28px;
-    border-radius: 28px;
-    border: 1px solid rgba(204, 225, 255, 0.25);
-    background-color: rgba(19, 28, 44, 0.97);
-    color: #eef4ff;
-    box-shadow: 0 18px 54px 0 rgba(0, 0, 0, 0.28);
+    spacing: 18px;
+    padding: 26px;
+    border-radius: 32px;
+    background-color: #000000;
+    color: #ffffff;
+    box-shadow: 0 18px 54px 0 rgba(0, 0, 0, 0.45);
 }
 .notchboard-launcher-header { spacing: 18px; }
-.notchboard-launcher-title { font-size: 23px; font-weight: bold; color: #f0f5ff; }
-.notchboard-launcher-subtitle { font-size: 11px; color: #b4c6df; padding-top: 6px; }
+.notchboard-launcher-title { font-size: 22px; font-weight: bold; color: #ffffff; }
+.notchboard-launcher-subtitle { font-size: 11px; color: #8e8e93; padding-top: 6px; }
 .notchboard-search {
-    padding: 12px 15px;
-    border-radius: 14px;
-    color: #eef5ff;
-    background-color: rgba(8, 15, 29, 0.65);
-    border: 1px solid rgba(159, 193, 238, 0.3);
-    selection-background-color: #41648c;
+    padding: 11px 15px;
+    border-radius: 16px;
+    color: #ffffff;
+    background-color: #1c1c1e;
+    border: 1px solid transparent;
+    selection-background-color: #0a84ff;
     selected-color: #ffffff;
     font-size: 15px;
+    caret-color: #ffffff;
 }
-.notchboard-search:focus { border-color: #a2ccff; }
+/* Replaces GNOME's blue entry focus ring. */
+.notchboard-search:focus { border-color: #48484a; box-shadow: none; }
+.notchboard-search StLabel.hint-text { color: #8e8e93; }
+.notchboard-search StIcon { color: #8e8e93; }
 .notchboard-app {
-    border-radius: 17px;
-    border: 1px solid transparent;
+    border-radius: 18px;
     padding: 12px 8px;
     transition-duration: 100ms;
 }
-.notchboard-app:hover, .notchboard-app:focus, .notchboard-app:selected {
-    background-color: rgba(128, 175, 240, 0.17);
-    border-color: rgba(169, 207, 255, 0.55);
-}
+.notchboard-app:hover, .notchboard-app:focus, .notchboard-app:selected { background-color: #1c1c1e; }
+.notchboard-app:selected { background-color: #2c2c2e; }
 .notchboard-app-content { spacing: 9px; }
-.notchboard-app-label { font-size: 11px; text-align: center; color: #e7effc; }
+.notchboard-app-label { font-size: 11px; text-align: center; color: #ffffff; }

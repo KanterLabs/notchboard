@@ -1,6 +1,6 @@
 <schemalist>
   <schema id="org.gnome.shell.extensions.notchboard" path="/org/gnome/shell/extensions/notchboard/">
-    <key name="animation-ms" type="i"><default>140</default><range min="0" max="300"/><summary>Workspace slide duration</summary></key>
+    <key name="animation-ms" type="i"><default>280</default><range min="0" max="600"/><summary>Workspace slide duration</summary></key>
     <key name="restore-state" type="s"><default>''</default><summary>Recovery journal for settings owned by Notchboard</summary></key>
     <key name="grid-reset" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;BackSpace']</default><summary>Pack windows together and remove unused workspace rows</summary></key>
     <key name="grid-close-space" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;r']</default><summary>Close windows in the current workspace and return to its launcher</summary></key>

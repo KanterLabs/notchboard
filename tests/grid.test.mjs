@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import test from 'node:test';
 const source = await readFile(new URL('../notchboard@kanterlabs.dev/grid.js', import.meta.url), 'utf8');
-const {neighbor, nearestEmpty, capacity, isGridShortcut} = await import(`data:text/javascript,${encodeURIComponent(source)}`);
+const {neighbor, nearestEmpty, capacity, isGridShortcut, cellName, shortName} = await import(`data:text/javascript,${encodeURIComponent(source)}`);
 
 test('arrows preserve spatial neighbors, never wrap or leave the grid', () => {
     for (let count = 6; count <= 36; count += 3) {
@@ -43,4 +43,14 @@ test('shortcut takeover preserves unrelated bindings and modifier combinations',
         assert.equal(isGridShortcut(key), true, key);
     for (const key of ['<Super><Alt>Left', '<Control><Super>Right', '<Super>KP_4', '<Super>w', '<Alt>Left'])
         assert.equal(isGridShortcut(key), false, key);
+});
+
+test('cells and launcher names read the same everywhere', () => {
+    assert.equal(cellName(0), 'Row 1, column 1');
+    assert.equal(cellName(5), 'Row 2, column 3');
+    assert.equal(shortName('Brave Web Browser'), 'Brave');
+    assert.equal(shortName('Chromium Web Browser'), 'Chromium');
+    assert.equal(shortName('Tor Browser'), 'Tor');
+    assert.equal(shortName('Browser'), 'Browser');
+    assert.equal(shortName('Files'), 'Files');
 });

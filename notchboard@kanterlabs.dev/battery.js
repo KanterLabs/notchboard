@@ -30,10 +30,11 @@ export class BatteryLine {
         this._desktop = desktop;
         this.reading = null;
         this.track = new St.Widget({style_class: 'notchboard-battery', x_expand: true, visible: false,
+            layout_manager: new Clutter.BinLayout(),
             accessible_name: 'Battery'});
-        this.fill = new St.Widget({style_class: 'notchboard-battery-fill'});
+        this.fill = new St.Widget({style_class: 'notchboard-battery-fill', x_expand: true});
+        this.fill.set_pivot_point(0, 0.5);
         this.track.add_child(this.fill);
-        this.track.connect('notify::width', () => this._layout());
         this.label = new St.Label({style_class: 'notchboard-notch-label', visible: false,
             y_align: Clutter.ActorAlign.CENTER});
         const info = Gio.DBusNodeInfo.new_for_xml(INTERFACE).interfaces[0];
@@ -85,7 +86,9 @@ export class BatteryLine {
         if (!this.reading || this._destroyed)
             return;
         const fraction = Math.max(0, Math.min(1, this.reading.percentage / 100));
-        this.fill.width = Math.round(this.track.width * fraction);
+        // A width request on the child becomes the track's minimum width,
+        // preventing the island from shrinking after media/volume expansion.
+        this.fill.scale_x = fraction;
     }
 
     destroy() {
