@@ -649,21 +649,21 @@ export default class GridTest extends Extension {
         keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_Super_L, Clutter.KeyState.RELEASED);
         await wait(450);
         check(!grid._map, 'Map fades after modifier release');
-        const tapSuper = async (expectedOnPress = null, key = Clutter.KEY_Super_L) => {
+        const tapSuper = async (key = Clutter.KEY_Super_L, expectGrid = true) => {
             keyboard.notify_keyval(GLib.get_monotonic_time(), key, Clutter.KeyState.PRESSED);
             await wait(120);
-            if (expectedOnPress !== null)
-                check(!!grid._map === expectedOnPress,
-                    expectedOnPress ? 'Super shows the grid on key-down before release or an arrow' :
-                        'Super closes the grid on key-down before release');
+            if (expectGrid)
+                check(grid._map?.visible && !grid._mapPinned,
+                    'Super shows the grid on key-down before release or an arrow');
             keyboard.notify_keyval(GLib.get_monotonic_time(), key, Clutter.KeyState.RELEASED);
-            await wait(300);
+            await wait(450);
         };
-        await tapSuper(true);
-        check(grid._map?.visible && grid._mapPinned && !Main.overview.visible,
-            'Standalone Super opens the grid instead of GNOME Overview');
+        await tapSuper();
+        check(!grid._map && !grid._mapPinned && !Main.overview.visible,
+            'Standalone Super peeks the grid instead of GNOME Overview and hides it on release');
+        await clickActor(desktop._gridButton);
         await wait(650);
-        check(grid._map?.visible && grid._mapPinned, 'Super-toggled grid stays open after key release');
+        check(grid._map?.visible && grid._mapPinned, 'Notch grid button pins the map open');
         check(grid._map.opacity === 255 && grid._map.get_paint_opacity() === 255,
             'Interactive grid is fully painted rather than transparent');
         await clickActor(grid._map.get_first_child());
@@ -698,15 +698,15 @@ export default class GridTest extends Extension {
         check(abovePopups(desktop.notch) && abovePopups(grid._map),
             'Notch and map paint above application windows and popups');
         await capture('fullscreen-grid');
-        await tapSuper(false);
-        check(!grid._map && !grid._mapPinned, 'Super closes the grid while a fullscreen app has keyboard focus');
-        await tapSuper(true);
-        check(grid._map?.visible && grid._mapPinned, 'Super opens the grid while a fullscreen app has keyboard focus');
-        check(!grid._superHeld, 'Fullscreen Super release clears held state');
-        await tapSuper(false, Clutter.KEY_Super_R);
-        await tapSuper(true, Clutter.KEY_Super_R);
-        check(grid._map?.visible && grid._mapPinned && !grid._superHeld,
-            'Right Super also toggles and releases correctly with fullscreen focus');
+        await tapSuper();
+        check(!grid._map && !grid._mapPinned, 'Releasing Super dismisses a pinned grid while a fullscreen app has keyboard focus');
+        await tapSuper();
+        check(!grid._map && !grid._superHeld, 'Super peeks the grid with fullscreen focus and release clears held state');
+        await tapSuper(Clutter.KEY_Super_R);
+        check(!grid._map && !grid._mapPinned && !grid._superHeld,
+            'Right Super also peeks and releases correctly with fullscreen focus');
+        grid.toggleGrid();
+        await wait(120);
         // Click outside the map, in the fullscreen app, using real pointer input.
         pointer.notify_absolute_motion(GLib.get_monotonic_time(), monitor.x + 30, monitor.y + 120);
         await wait(80);
@@ -762,9 +762,9 @@ export default class GridTest extends Extension {
         await wait(500);
         check(grid._map?.visible && grid._mapPinned,
             'Toggled grid stays open while navigating and rebuilding its row viewport');
-        await tapSuper(false);
+        await tapSuper();
         check(!grid._map && !grid._mapPinned && !Main.overview.visible,
-            'Second standalone Super closes the grid');
+            'Releasing a standalone Super closes a pinned grid');
         wm.get_workspace_by_index(1).activate(global.get_current_time());
         grid._setCount(9);
         await wait(200);
@@ -939,7 +939,7 @@ Notchboard.prototype.enable = function () {
         check(grid._overlayHandler === 0, 'Disable releases ownership of the native Super handler');
         check(grid._superActions.size === 0, 'Disable releases both compositor Super accelerators');
         check(!grid._overlayCompositing, 'Disable releases overlay composition inhibition');
-        await tapSuper();
+        await tapSuper(Clutter.KEY_Super_L, false);
         check(Main.overview.visible, 'Disabling Notchboard restores Super opening GNOME Overview');
         Main.overview.hide();
         await wait(350);

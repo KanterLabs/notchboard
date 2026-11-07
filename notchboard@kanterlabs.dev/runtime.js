@@ -110,12 +110,12 @@ export default class Notchboard extends Extension {
                 this._watchSuperRelease();
                 this._superWasPinned = !!this._map && !!this._mapPinned;
                 if (Main.actionMode === Shell.ActionMode.NORMAL)
-                    this.toggleGrid();
+                    this._peekGrid();
                 else if (Main.overview.visible) {
                     Main.overview.hide();
                     this._later(300, () => {
-                        if (Main.actionMode === Shell.ActionMode.NORMAL)
-                            this.toggleGrid();
+                        if (this._superHeld && Main.actionMode === Shell.ActionMode.NORMAL)
+                            this._peekGrid();
                     });
                 }
             });
@@ -642,6 +642,13 @@ export default class Notchboard extends Extension {
         this._mapPinned = wasPinned;
         if (wasPinned && !this._map)
             this._showMap();
+    }
+
+    // Super shows the map only while held; releasing it hides the map again,
+    // including one pinned by the notch button (a chord keeps that pin).
+    _peekGrid() {
+        this._mapPinned = false;
+        this._showMap();
     }
 
     toggleGrid() {

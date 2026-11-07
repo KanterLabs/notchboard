@@ -62,9 +62,9 @@ window, setting, shortcut, dock and the top bar back the way they were.
 - **Spatial navigation.** `Super` + arrows slides to the neighbouring cell;
   add `Shift` to carry the focused window with you. Edges and occupied cells
   give a small nudge instead of wrapping.
-- **Live map.** Tap `Super` and the notch grows into a map of every cell with
-  live thumbnails; click one to jump there, or click outside the map to close
-  it.
+- **Live map.** Hold `Super` and the notch grows into a map of every cell with
+  live thumbnails; release it and the map folds away. Click the notch's grid to
+  pin the map, then click a cell to jump there.
 - **Launcher on empty screens.** An empty cell shows your favourite and
   most-used apps with search, so a new screen is always one keystroke from
   something useful.
@@ -129,7 +129,7 @@ shutdown or restart confirmation always shows.
 
 | Shortcut | Action |
 | --- | --- |
-| `Super` | Toggle the grid map |
+| `Super` (hold) | Show the grid map until released |
 | `Super` + arrows | Move to the neighbouring cell |
 | `Super` + `Shift` + arrows | Carry the focused window to an empty neighbour |
 | `Super` + `Shift` + `Backspace` | Pack windows together and remove unused rows |
