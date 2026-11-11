@@ -59,8 +59,9 @@ window, setting, shortcut, dock and the top bar back the way they were.
 - **One app per screen.** New windows open maximized in the nearest empty
   cell. Positions stay put when other windows close, and rows grow as needed
   (up to GNOME's 36 workspaces).
-- **Spatial navigation.** `Super` + arrows slides to the neighbouring cell;
-  add `Shift` to carry the focused window with you. Edges and occupied cells
+- **Spatial navigation.** `Super` + arrows, or `Super` + `W` `A` `S` `D`,
+  slides to the neighbouring cell; add `Shift` to carry the focused window
+  with you. Edges and occupied cells
   give a small nudge instead of wrapping.
 - **Live map.** Hold `Super` and the notch grows into a map of every cell with
   live thumbnails; release it and the map folds away. Click the notch's grid to
@@ -68,8 +69,14 @@ window, setting, shortcut, dock and the top bar back the way they were.
 - **Launcher on empty screens.** An empty cell shows your favourite and
   most-used apps with search, so a new screen is always one keystroke from
   something useful.
+- **Search from anywhere.** A quick tap of `Super` drops a search panel from
+  the notch. It finds apps, open windows and the cell each one is in, answers
+  sums, runs system and grid actions, and lists files, settings and anything
+  else GNOME's search providers offer, with a web search last. `Enter` opens
+  the top result.
 
 <img alt="The Notchboard map: a three-column grid of live window thumbnails with empty cells" src="docs/assets/map.png" width="360">
+<img alt="Search dropping from the notch: an app, three open windows with their cells, a grid action and a web search" src="docs/assets/search.png" width="420">
 
 ### The notch
 
@@ -129,12 +136,14 @@ shutdown or restart confirmation always shows.
 
 | Shortcut | Action |
 | --- | --- |
+| `Super` (tap) | Open or close search |
 | `Super` (hold) | Show the grid map until released |
-| `Super` + arrows | Move to the neighbouring cell |
-| `Super` + `Shift` + arrows | Carry the focused window to an empty neighbour |
+| `Super` + arrows or `W` `A` `S` `D` | Move to the neighbouring cell |
+| `Super` + `Shift` + arrows or `W` `A` `S` `D` | Carry the focused window to an empty neighbour |
 | `Super` + `Shift` + `Backspace` | Pack windows together and remove unused rows |
 | `Super` + `Shift` + `R` | Close this cell's windows and show its launcher |
 | `Super` + `Shift` + `H` | Hide or show both islands |
+| `Super` + `Space` | Open or close search, like a tap |
 
 Every shortcut is a setting and can be rebound.
 
@@ -152,6 +161,8 @@ gsettings --schemadir $schemas list-recursively org.gnome.shell.extensions.notch
 | `animation-ms` | `280` | Workspace switch duration; GNOME's reduced-motion setting is respected |
 | `notch-hidden` | `false` | Hide both islands until the pointer touches their edge |
 | `hosted-indicator` | `'ai-usage@laptopconfig'` | Panel indicator shown in the notch, by status-area key; empty for none |
+| `super-hold-ms` | `200` | How long `Super` is held before the map shows; a shorter press is a tap |
+| `search-web-url` | `'https://duckduckgo.com/?q=%s'` | Web search used by search, with `%s` for the query; empty for no web results |
 | `grid-*` | see [Shortcuts](#shortcuts) | Keybindings |
 
 <a id="how-it-works"></a>
@@ -167,8 +178,11 @@ gsettings --schemadir $schemas list-recursively org.gnome.shell.extensions.notch
   The journal survives a Shell crash, and `make restore` replays it if the
   extension can't load. Docks and the top bar are only hidden, never
   reconfigured.
-- **Plays well with others.** It claims only the Super-arrow bindings, from
-  GNOME and Tiling Assistant, and leaves their other shortcuts alone.
+- **Plays well with others.** It claims only its own navigation and search
+  shortcuts, from GNOME and Tiling Assistant, and leaves their other
+  shortcuts alone. By default that takes `Super` + `A` (app grid), `Super` +
+  `S` (quick settings) and `Super` + `Space` (switching input sources) from
+  GNOME; change the matching `grid-*` setting to keep one.
 
 More detail is in [docs/USAGE.md](docs/USAGE.md).
 
@@ -177,7 +191,7 @@ More detail is in [docs/USAGE.md](docs/USAGE.md).
 ## 🧪 Development
 
 ```sh
-make test         # grid logic and settings schema
+make test         # grid and search logic, settings schema
 make test-shell   # the integration suite in a real headless gnome-shell
 make status       # which release is running
 ```

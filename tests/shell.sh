@@ -61,6 +61,9 @@ dbus-run-session -- bash -c '
     gsettings set org.gnome.desktop.session idle-delay 0
     gsettings set org.gnome.desktop.screensaver lock-enabled false
     gsettings set org.gnome.mutter dynamic-workspaces true
+    # Search asks the installed search providers, which would start the real
+    # Files, Firefox and others inside this session. The suite brings its own.
+    gsettings set org.gnome.desktop.search-providers disable-external true
     if [[ $NOTCHBOARD_TEST_SCALE != 1 ]]; then
         for key in picture-uri picture-uri-dark; do gsettings set org.gnome.desktop.background $key ""; done
         gsettings set org.gnome.desktop.background picture-options none
@@ -73,7 +76,7 @@ dbus-run-session -- bash -c '
     gnome-shell --headless --wayland --no-x11 --virtual-monitor "$NOTCHBOARD_TEST_MONITOR" --wayland-display grid-test-0 > "$NOTCHBOARD_TEST_DIR/shell.log" 2>&1 &
     shell_pid=$!
     trap '\''kill "$shell_pid" 2>/dev/null || true; wait "$shell_pid" 2>/dev/null || true'\'' EXIT
-    for ((attempt=0; attempt<120; attempt++)); do
+    for ((attempt=0; attempt<240; attempt++)); do
         if [[ -s "$NOTCHBOARD_TEST_DIR/result.json" ]]; then
             cat "$NOTCHBOARD_TEST_DIR/result.json"
             python3 -c '\''import json,os; r=json.load(open(os.environ["NOTCHBOARD_TEST_DIR"]+"/result.json")); raise SystemExit(0 if r["passed"] else 1)'\''

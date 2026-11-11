@@ -15,6 +15,7 @@ import {AirPodsIndicator} from './airpods.js';
 import {BatteryLine} from './battery.js';
 import {PowerIsland} from './power.js';
 import {CodePrompt} from './codePrompt.js';
+import {Spotlight} from './spotlight.js';
 
 const DOCK = 'dash-to-dock@micxgx.gmail.com';
 export const EDGE = 2;
@@ -91,6 +92,7 @@ export class GridDesktop {
         this.airpods = new AirPodsIndicator(this);
         this.battery = new BatteryLine(this);
         this.power = new PowerIsland(this);
+        this.spotlight = new Spotlight(this);
         this._connect(owner._settings, 'changed::hosted-indicator', () => {
             this._restoreAi();
             this._syncAi();
@@ -293,7 +295,8 @@ export class GridDesktop {
     }
 
     // Open while hovered or briefly after a workspace switch; an open AI or
-    // notification menu keeps the drawer shut so it never covers the menu.
+    // notification menu keeps the drawer shut so it never covers the menu, and
+    // the map and search keep it shut beneath them.
     _syncIsland() {
         if (this._destroyed)
             return;
@@ -302,7 +305,8 @@ export class GridDesktop {
         if (this._menuOpen() && this.codePrompt?.active)
             this.codePrompt.dismiss();
         const open = this.revealed && (this.notch.hover || GLib.get_monotonic_time() < this._pulseUntil) &&
-            !this._menuOpen() && !this.codePrompt?.active && !this.owner._map && !Main.sessionMode.isLocked;
+            !this._menuOpen() && !this.codePrompt?.active && !this.owner._map && !this.spotlight?.visible &&
+            !Main.sessionMode.isLocked;
         if (open === this.expanded)
             return;
         this.expanded = open;
@@ -735,7 +739,9 @@ export class GridDesktop {
             this.launcher.translation_y = 10;
             this.launcher.ease({translation_y: 0, duration: this.owner._duration(),
                 mode: Clutter.AnimationMode.EASE_OUT_CUBIC});
-            this.search.grab_key_focus();
+            // Open search keeps the keyboard.
+            if (!this.spotlight.visible)
+                this.search.grab_key_focus();
         }
     }
 
@@ -764,6 +770,7 @@ export class GridDesktop {
         this._edge.destroy();
         this._ears.destroy();
         this._destroyLauncher();
+        this.spotlight.destroy();
         this.battery.destroy();
         this.airpods.destroy();
         this.power.destroy();

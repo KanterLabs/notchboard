@@ -7,13 +7,16 @@
     <key name="hosted-indicator" type="s"><default>'ai-usage@laptopconfig'</default><summary>Panel indicator moved into the island, by its status-area key; empty for none</summary></key>
     <key name="notch-hidden" type="b"><default>false</default><summary>Hide the island until the pointer touches the top edge</summary></key>
     <key name="grid-toggle-notch" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;h']</default><summary>Hide or show the island</summary></key>
-    <key name="grid-left" type="as"><default>['&lt;Super&gt;Left']</default><summary>Navigate left</summary></key>
-    <key name="grid-right" type="as"><default>['&lt;Super&gt;Right']</default><summary>Navigate right</summary></key>
-    <key name="grid-up" type="as"><default>['&lt;Super&gt;Up']</default><summary>Navigate up</summary></key>
-    <key name="grid-down" type="as"><default>['&lt;Super&gt;Down']</default><summary>Navigate down</summary></key>
-    <key name="grid-move-left" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;Left']</default><summary>Move window left</summary></key>
-    <key name="grid-move-right" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;Right']</default><summary>Move window right</summary></key>
-    <key name="grid-move-up" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;Up']</default><summary>Move window up</summary></key>
-    <key name="grid-move-down" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;Down']</default><summary>Move window down</summary></key>
+    <key name="super-hold-ms" type="i"><default>200</default><range min="100" max="600"/><summary>How long Super is held before the map shows; a shorter press is a tap, which opens search</summary></key>
+    <key name="grid-search" type="as"><default>['&lt;Super&gt;space']</default><summary>Open or close search</summary></key>
+    <key name="search-web-url" type="s"><default>'https://duckduckgo.com/?q=%s'</default><summary>Web search address, with %s for the query; empty for no web results</summary></key>
+    <key name="grid-left" type="as"><default>['&lt;Super&gt;Left', '&lt;Super&gt;a']</default><summary>Navigate left</summary></key>
+    <key name="grid-right" type="as"><default>['&lt;Super&gt;Right', '&lt;Super&gt;d']</default><summary>Navigate right</summary></key>
+    <key name="grid-up" type="as"><default>['&lt;Super&gt;Up', '&lt;Super&gt;w']</default><summary>Navigate up</summary></key>
+    <key name="grid-down" type="as"><default>['&lt;Super&gt;Down', '&lt;Super&gt;s']</default><summary>Navigate down</summary></key>
+    <key name="grid-move-left" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;Left', '&lt;Super&gt;&lt;Shift&gt;a']</default><summary>Move window left</summary></key>
+    <key name="grid-move-right" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;Right', '&lt;Super&gt;&lt;Shift&gt;d']</default><summary>Move window right</summary></key>
+    <key name="grid-move-up" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;Up', '&lt;Super&gt;&lt;Shift&gt;w']</default><summary>Move window up</summary></key>
+    <key name="grid-move-down" type="as"><default>['&lt;Super&gt;&lt;Shift&gt;Down', '&lt;Super&gt;&lt;Shift&gt;s']</default><summary>Move window down</summary></key>
   </schema>
 </schemalist>

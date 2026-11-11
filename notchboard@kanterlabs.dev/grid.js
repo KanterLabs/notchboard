@@ -34,6 +34,13 @@ export function isGridShortcut(accel) {
         parts.every(p => ['<super>', '<shift>', 'left', 'right', 'up', 'down'].includes(p));
 }
 
+// "<Primary>space" and "<control>Space" are one shortcut.
+export function sameShortcut(a, b) {
+    const normal = accel => (accel.toLowerCase().match(/<[^>]+>|[^<>]+/g) ?? [])
+        .map(part => ['<primary>', '<ctrl>'].includes(part) ? '<control>' : part).sort().join('');
+    return normal(a) === normal(b);
+}
+
 // One wording for a cell everywhere: the notch drawer, launcher and map.
 export function cellName(index) {
     return `Row ${Math.floor(index / COLUMNS) + 1}, column ${index % COLUMNS + 1}`;

@@ -317,3 +317,40 @@
 .notchboard-app:selected { background-color: #2c2c2e; }
 .notchboard-app-content { spacing: 9px; }
 .notchboard-app-label { font-size: 11px; text-align: center; color: #ffffff; }
+
+/* Search: drops from the notch as the map does, in the same black. */
+.notchboard-spotlight {
+    padding: 8px;
+    border-radius: 26px;
+    background-color: #000000;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    box-shadow: 0 14px 40px 0 rgba(0, 0, 0, 0.6);
+}
+.notchboard-spotlight-entry {
+    padding: 10px 12px;
+    border: none;
+    border-radius: 18px;
+    background-color: transparent;
+    color: #ffffff;
+    font-size: 18px;
+    caret-color: #ffffff;
+    selection-background-color: #0a84ff;
+    selected-color: #ffffff;
+}
+/* Replaces GNOME's blue entry focus ring. */
+.notchboard-spotlight-entry:focus { box-shadow: none; }
+.notchboard-spotlight-entry StLabel.hint-text { color: #8e8e93; }
+.notchboard-spotlight-entry StIcon { color: #8e8e93; padding-right: 6px; }
+.notchboard-spotlight-list { spacing: 2px; padding-top: 2px; }
+.notchboard-spotlight-section { padding: 8px 12px 3px 12px; font-size: 11px; font-weight: bold; color: #8e8e93; }
+.notchboard-spotlight-row { padding: 7px 12px 7px 10px; border-radius: 14px; color: #ffffff; text-align: left; }
+.notchboard-spotlight-row:hover { background-color: #1c1c1e; }
+.notchboard-spotlight-row:selected { background-color: #2c2c2e; }
+.notchboard-spotlight-row-box { spacing: 12px; }
+.notchboard-spotlight-glyph { width: 28px; height: 28px; border-radius: 8px; background-color: #3a3a3c; color: #ffffff; }
+.notchboard-spotlight-title { font-size: 13.5px; }
+.notchboard-spotlight-subtitle { font-size: 11.5px; color: #8e8e93; }
+.notchboard-spotlight-answer { font-size: 20px; font-weight: bold; font-feature-settings: "tnum"; }
+.notchboard-spotlight-key { font-size: 11px; color: #8e8e93; }
+.notchboard-spotlight-hint { padding: 8px 12px 6px 12px; font-size: 11px; color: #8e8e93; }

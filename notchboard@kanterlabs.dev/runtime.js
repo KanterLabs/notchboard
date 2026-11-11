@@ -10,7 +10,7 @@ import St from 'gi://St';
 import {Extension, InjectionManager} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {WorkspaceGroup} from 'resource:///org/gnome/shell/ui/workspaceAnimation.js';
-import {COLUMNS, MAX_CELLS, neighbor, nearestEmpty, capacity, isGridShortcut} from './grid.js';
+import {COLUMNS, MAX_CELLS, neighbor, nearestEmpty, capacity, isGridShortcut, sameShortcut} from './grid.js';
 import {GridDesktop} from './desktop.js';
 
 export default class Notchboard extends Extension {
@@ -75,6 +75,14 @@ export default class Notchboard extends Extension {
             if (notch === Meta.KeyBindingAction.NONE)
                 throw new Error('Could not register grid-toggle-notch');
             this._bindings.push('grid-toggle-notch');
+            // Also live while search itself is open, so the shortcut closes it.
+            const search = Main.wm.addKeybinding('grid-search', this._settings,
+                Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+                Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW | Shell.ActionMode.POPUP,
+                () => this.toggleSearch());
+            if (search === Meta.KeyBindingAction.NONE)
+                throw new Error('Could not register grid-search');
+            this._bindings.push('grid-search');
             // Keep the native handler available for disable(), but use key-down
             // accelerators: Mutter's overlay-key signal arrives on release.
             this._overlayHandler = GObject.signal_handler_find(global.display, {signalId: 'overlay-key'});
@@ -93,7 +101,9 @@ export default class Notchboard extends Extension {
                             throw new Error(`Could not register ${key}`);
                         const name = Meta.external_binding_name_for_action(action);
                         this._superActions.set(action, name);
-                        Main.wm.allowKeybinding(name, Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW);
+                        // In a popup too: a tap closes search, which is one.
+                        Main.wm.allowKeybinding(name, Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW |
+                            Shell.ActionMode.POPUP);
                     }
                     this._readyResolve?.(true);
                     this._readyResolve = null;
@@ -103,21 +113,10 @@ export default class Notchboard extends Extension {
                     throw error;
                 }
             }, GLib.PRIORITY_LOW);
+            this._idle = global.backend.get_core_idle_monitor();
             this._connect(global.display, 'accelerator-activated', (_display, action) => {
-                if (!this._superActions.has(action) || this._superHeld)
-                    return;
-                this._superHeld = true;
-                this._watchSuperRelease();
-                this._superWasPinned = !!this._map && !!this._mapPinned;
-                if (Main.actionMode === Shell.ActionMode.NORMAL)
-                    this._peekGrid();
-                else if (Main.overview.visible) {
-                    Main.overview.hide();
-                    this._later(300, () => {
-                        if (this._superHeld && Main.actionMode === Shell.ActionMode.NORMAL)
-                            this._peekGrid();
-                    });
-                }
+                if (this._superActions.has(action) && !this._superHeld)
+                    this._superPressed();
             });
             this._connect(Main.wm._shellwm, 'filter-keybinding', (_wm, binding) => {
                 if ([...this._superActions.values()].includes(binding.get_name()))
@@ -311,6 +310,12 @@ export default class Notchboard extends Extension {
         // accelerators. Super+arrow and other chord bindings still work.
         set(new Gio.Settings({schema_id: 'org.gnome.mutter'}), 'overlay-key',
             new GLib.Variant('s', ''));
+        // Notchboard's own navigation and search shortcuts are claimed the
+        // same way, whatever they are set to. By default that takes Super+A
+        // and Super+S from GNOME's app grid and quick settings, and
+        // Super+Space from switching input sources.
+        const claimed = ['left', 'right', 'up', 'down'].flatMap(direction => [`grid-${direction}`, `grid-move-${direction}`])
+            .concat('grid-search').flatMap(key => this._settings.get_strv(key));
         for (const id of ['org.gnome.desktop.wm.keybindings', 'org.gnome.mutter.keybindings',
             'org.gnome.shell.keybindings', 'org.gnome.shell.extensions.tiling-assistant']) {
             const settings = this._schemaSettings(id);
@@ -321,7 +326,7 @@ export default class Notchboard extends Extension {
                 if (value.get_type_string() !== 'as')
                     continue;
                 const keys = value.deep_unpack();
-                const filtered = keys.filter(k => !isGridShortcut(k));
+                const filtered = keys.filter(k => !isGridShortcut(k) && !claimed.some(c => sameShortcut(c, k)));
                 if (filtered.length !== keys.length)
                     set(settings, key, new GLib.Variant('as', filtered));
             }
@@ -588,6 +593,7 @@ export default class Notchboard extends Extension {
             resolvedRight: global.display.get_keybinding_action(134, 0),
             active: global.workspace_manager.get_active_workspace_index(),
             launcher: this._desktop?.launcher?.visible ?? false,
+            search: this._desktop?.spotlight?.visible ?? false,
             airpods: this._desktop?.airpods ? {connected: this._desktop.airpods.connected,
                 shown: this._desktop.airpods.button.visible, label: this._desktop.airpods._label.text,
                 broadcast: this._desktop.airpods._broadcast} : null,
@@ -607,7 +613,7 @@ export default class Notchboard extends Extension {
     _syncOverlayCompositing() {
         const visible = !this._stopping && !Main.sessionMode.isLocked &&
             !!(this._map || this._desktop?.notch.visible || this._desktop?.power?.notch.visible ||
-            this._desktop?.launcher?.visible);
+            this._desktop?.launcher?.visible || this._desktop?.spotlight?.visible);
         if (visible === this._overlayCompositing)
             return;
         this._overlayCompositing = visible;
@@ -620,20 +626,106 @@ export default class Notchboard extends Extension {
         global.stage.queue_redraw();
     }
 
+    // Super on its own does two things: a quick tap opens or closes search,
+    // and holding it shows the map until it is released. In a chord it does
+    // neither, and Super + arrows shows the map as it navigates.
+    _superPressed() {
+        const search = this._desktop?.spotlight;
+        // Any other open menu keeps Super to itself.
+        if (Main.actionMode === Shell.ActionMode.POPUP && !search?.visible)
+            return;
+        this._superHeld = true;
+        this._superTap = true;
+        this._superWasPinned = !!this._map && !!this._mapPinned;
+        this._superSeen = {time: GLib.get_monotonic_time(), ...this._pointer()};
+        this._watchSuperRelease();
+        let hold = this._settings.get_int('super-hold-ms');
+        if (this._superWasPinned) {
+            // A pinned map is already up; releasing Super dismisses it.
+            this._superTap = false;
+            this._peekGrid();
+            return;
+        }
+        if (Main.overview.visible) {
+            // Leaving the overview is all a tap does there.
+            this._superTap = false;
+            Main.overview.hide();
+            hold = Math.max(hold, 300);
+        }
+        this._superHold = this._later(hold, () => {
+            this._superHold = 0;
+            this._superTap = false;
+            // Showing the map closes search.
+            if (this._superHeld && (Main.actionMode === Shell.ActionMode.NORMAL || search?.visible))
+                this._peekGrid();
+        });
+    }
+
+    _superReleased() {
+        this._superHeld = false;
+        this._cancel(this._superHold);
+        this._superHold = 0;
+        if (!this._superTap)
+            return;
+        this._superTap = false;
+        const search = this._desktop?.spotlight;
+        if (search?.visible)
+            search.close();
+        else if (Main.actionMode === Shell.ActionMode.NORMAL)
+            search?.open();
+    }
+
+    // Super turned out to be part of a chord: no search, and no map either
+    // unless the chord itself shows it.
+    _superChord() {
+        this._superTap = false;
+        this._cancel(this._superHold);
+        this._superHold = 0;
+    }
+
     _watchSuperRelease() {
         // Modifier releases can also go straight to Wayland clients. Watch
         // compositor modifier state only while Super is down; no idle polling.
         this._later(16, () => {
-            if (!(global.get_pointer()[2] & Clutter.ModifierType.MOD4_MASK))
-                this._superHeld = false;
+            const modifiers = global.get_pointer()[2];
+            if (!(modifiers & Clutter.ModifierType.MOD4_MASK))
+                this._superReleased();
+            else if (this._superTap || this._superHold)
+                this._senseChord(modifiers);
             if (this._superHeld)
                 this._watchSuperRelease();
         });
     }
 
+    // A key pressed with Super held may go straight to the focused
+    // application (a terminal's Super + T, say) and never reach the Shell. It
+    // still resets the idle clock, as all input does, so input since the last
+    // look that was not the pointer moving means a chord. A pointer button or
+    // another modifier shows in the modifier state itself.
+    _senseChord(modifiers) {
+        const seen = this._superSeen;
+        const now = GLib.get_monotonic_time();
+        const sinceLook = (now - seen.time) / 1000;
+        const {x, y} = this._pointer();
+        const moved = x !== seen.x || y !== seen.y;
+        Object.assign(seen, {time: now, x, y});
+        const {SHIFT_MASK, CONTROL_MASK, MOD1_MASK, BUTTON1_MASK, BUTTON2_MASK, BUTTON3_MASK} = Clutter.ModifierType;
+        if ((modifiers & (SHIFT_MASK | CONTROL_MASK | MOD1_MASK | BUTTON1_MASK | BUTTON2_MASK | BUTTON3_MASK)) ||
+            (!moved && this._idle.get_idletime() + 3 < sinceLook))
+            this._superChord();
+    }
+
+    // Unrounded, so the smallest movement of a resting hand still counts as
+    // the pointer moving rather than as a key.
+    _pointer() {
+        const {x, y} = Clutter.get_default_backend().get_pointer_sprite(global.stage).get_coords();
+        return {x, y};
+    }
+
     _restoreSuperChord() {
         if (!this._superHeld)
             return;
+        this._superChord();
         // A chord is not a standalone toggle. Retain the pin state from
         // before Super was pressed; navigation will show its normal preview.
         const wasPinned = this._superWasPinned;
@@ -644,11 +736,30 @@ export default class Notchboard extends Extension {
             this._showMap();
     }
 
-    // Super shows the map only while held; releasing it hides the map again,
-    // including one pinned by the notch button (a chord keeps that pin).
+    // Holding Super shows the map only while held; releasing it hides the map
+    // again, including one pinned by the notch button (a chord keeps that pin).
     _peekGrid() {
         this._mapPinned = false;
         this._showMap();
+    }
+
+    toggleSearch() {
+        this._restoreSuperChord();
+        const spotlight = this._desktop?.spotlight;
+        if (!spotlight)
+            return;
+        if (spotlight.visible) {
+            spotlight.close();
+        } else if (Main.overview.visible) {
+            Main.overview.hide();
+            this._later(300, () => {
+                if (Main.actionMode === Shell.ActionMode.NORMAL)
+                    spotlight.open();
+            });
+        } else if (Main.actionMode === Shell.ActionMode.NORMAL) {
+            // Another open menu keeps the keyboard; search waits its turn.
+            spotlight.open();
+        }
     }
 
     toggleGrid() {
@@ -701,6 +812,8 @@ export default class Notchboard extends Extension {
     _showMap() {
         if (this._stopping || Main.sessionMode.isLocked || Main.overview.visible || !Main.layoutManager.primaryMonitor)
             return;
+        // The map and search share the space beneath the notch.
+        this._desktop?.spotlight?.close(true);
         const wm = global.workspace_manager;
         const active = wm.get_active_workspace_index();
         const monitor = Main.layoutManager.primaryMonitor;
@@ -791,7 +904,7 @@ export default class Notchboard extends Extension {
                 reactive: false, width: tileW, height: tileH});
             map.add_child(this._selection);
             const hint = new St.Label({style_class: 'notchboard-hint',
-                text: 'Super + ↑ ↓ ← →   ·   Shift carries the window'});
+                text: 'Super + arrows or WASD   ·   Shift carries the window'});
             map.add_child(hint);
             hint.set_position(inset, height - inset - 15);
             if (grow)
@@ -933,7 +1046,9 @@ export default class Notchboard extends Extension {
         this._diagnostics = null;
         this._readyResolve?.(false);
         this._readyResolve = null;
-        this._superHeld = false;
+        this._superHeld = this._superTap = false;
+        this._superHold = 0;
+        this._idle = null;
         this._desktop?.destroy();
         this._desktop = null;
         for (const name of this._bindings ?? [])

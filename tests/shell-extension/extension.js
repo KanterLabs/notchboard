@@ -61,7 +61,11 @@ export default class GridTest extends Extension {
         check(extension?.state === 1, `Extension ACTIVE: state=${extension?.state}, error=${extension?.error}`);
         const grid = extension.stateObj._runtime;
         const journal = JSON.parse(grid._settings.get_string('restore-state'));
-        check(grid._bindings.length === 11, 'All eleven shortcuts registered');
+        check(grid._bindings.length === 12, 'All twelve shortcuts registered');
+        check(journal.some(entry => entry.key === 'switch-input-source') &&
+            !wmBindings.get_strv('switch-input-source').includes('<Super>space') &&
+            wmBindings.get_strv('switch-input-source').includes('XF86Keyboard'),
+        `Super + Space is claimed from GNOME's input switching, leaving its other key: ${wmBindings.get_strv('switch-input-source')}`);
         check(global.workspace_manager.layout_columns === 3, 'Native layout has three columns');
         const desktop = grid._desktop;
         check(desktop.notch.visible, 'Workspace notch is visible');
@@ -649,18 +653,28 @@ export default class GridTest extends Extension {
         keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_Super_L, Clutter.KeyState.RELEASED);
         await wait(450);
         check(!grid._map, 'Map fades after modifier release');
-        const tapSuper = async (key = Clutter.KEY_Super_L, expectGrid = true) => {
+        // A quick press and release; search has its own checks further down.
+        const tapSuper = async (key = Clutter.KEY_Super_L) => {
             keyboard.notify_keyval(GLib.get_monotonic_time(), key, Clutter.KeyState.PRESSED);
-            await wait(120);
-            if (expectGrid)
-                check(grid._map?.visible && !grid._mapPinned,
-                    'Super shows the grid on key-down before release or an arrow');
+            await wait(50);
             keyboard.notify_keyval(GLib.get_monotonic_time(), key, Clutter.KeyState.RELEASED);
             await wait(450);
         };
-        await tapSuper();
-        check(!grid._map && !grid._mapPinned && !Main.overview.visible,
-            'Standalone Super peeks the grid instead of GNOME Overview and hides it on release');
+        // Held past the tap time, Super shows the grid until it is released.
+        const holdSuper = async (key = Clutter.KEY_Super_L) => {
+            const pinned = !!grid._mapPinned;
+            keyboard.notify_keyval(GLib.get_monotonic_time(), key, Clutter.KeyState.PRESSED);
+            await wait(100);
+            check(pinned || !grid._map, 'Super waits out a tap before showing the grid');
+            await wait(320);
+            check(grid._map?.visible && !grid._mapPinned && !desktop.spotlight.visible,
+                'Holding Super shows the grid without an arrow key');
+            keyboard.notify_keyval(GLib.get_monotonic_time(), key, Clutter.KeyState.RELEASED);
+            await wait(450);
+        };
+        await holdSuper();
+        check(!grid._map && !grid._mapPinned && !Main.overview.visible && !desktop.spotlight.visible,
+            'Held Super peeks the grid instead of GNOME Overview and hides it on release');
         await clickActor(desktop._gridButton);
         await wait(650);
         check(grid._map?.visible && grid._mapPinned, 'Notch grid button pins the map open');
@@ -699,10 +713,11 @@ export default class GridTest extends Extension {
             'Notch and map paint above application windows and popups');
         await capture('fullscreen-grid');
         await tapSuper();
-        check(!grid._map && !grid._mapPinned, 'Releasing Super dismisses a pinned grid while a fullscreen app has keyboard focus');
-        await tapSuper();
+        check(!grid._map && !grid._mapPinned && !desktop.spotlight.visible,
+            'Tapping Super dismisses a pinned grid while a fullscreen app has keyboard focus');
+        await holdSuper();
         check(!grid._map && !grid._superHeld, 'Super peeks the grid with fullscreen focus and release clears held state');
-        await tapSuper(Clutter.KEY_Super_R);
+        await holdSuper(Clutter.KEY_Super_R);
         check(!grid._map && !grid._mapPinned && !grid._superHeld,
             'Right Super also peeks and releases correctly with fullscreen focus');
         grid.toggleGrid();
@@ -763,8 +778,8 @@ export default class GridTest extends Extension {
         check(grid._map?.visible && grid._mapPinned,
             'Toggled grid stays open while navigating and rebuilding its row viewport');
         await tapSuper();
-        check(!grid._map && !grid._mapPinned && !Main.overview.visible,
-            'Releasing a standalone Super closes a pinned grid');
+        check(!grid._map && !grid._mapPinned && !Main.overview.visible && !desktop.spotlight.visible,
+            'Tapping Super closes a pinned grid rather than opening search');
         wm.get_workspace_by_index(1).activate(global.get_current_time());
         grid._setCount(9);
         await wait(200);
@@ -781,6 +796,255 @@ export default class GridTest extends Extension {
         Main.wm.removeKeybinding('test-super-chord');
         check(chordCalls === 1, 'Unrelated Super chord retains its registered action');
         check(!grid._mapPinned && !grid._map, 'Unrelated Super chord does not leave the grid pinned');
+        // W, A, S and D move around the grid as the arrows do.
+        const superKey = async key => {
+            keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_Super_L, Clutter.KeyState.PRESSED);
+            await wait(60);
+            keyboard.notify_keyval(GLib.get_monotonic_time(), key, Clutter.KeyState.PRESSED);
+            await wait(80);
+            keyboard.notify_keyval(GLib.get_monotonic_time(), key, Clutter.KeyState.RELEASED);
+            keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_Super_L, Clutter.KeyState.RELEASED);
+            await wait(450);
+            return wm.get_active_workspace_index();
+        };
+        const wasd = [await superKey(Clutter.KEY_a), await superKey(Clutter.KEY_d),
+            await superKey(Clutter.KEY_s), await superKey(Clutter.KEY_w)];
+        check(wasd.join() === '0,1,4,1', `Super + A, D, S and W move left, right, down and up: ${wasd}`);
+        check(!Main.overview.visible && !Main.panel.statusArea.quickSettings.menu.isOpen &&
+            !desktop.spotlight.visible && !grid._map,
+        'Super + A and Super + S no longer open the app grid or quick settings, nor search');
+        check(['toggle-application-view', 'toggle-quick-settings'].every(key => journal.some(entry => entry.key === key)) &&
+            grid._settings.get_strv('grid-move-up').join() === '<Super><Shift>Up,<Super><Shift>w',
+        'GNOME gives up Super + A and Super + S while Notchboard is enabled, and Shift + WASD carries a window');
+        // Search, opened over an application that has keyboard focus.
+        const spotlight = desktop.spotlight;
+        const press = async key => {
+            keyboard.notify_keyval(GLib.get_monotonic_time(), key, Clutter.KeyState.PRESSED);
+            await wait(50);
+            keyboard.notify_keyval(GLib.get_monotonic_time(), key, Clutter.KeyState.RELEASED);
+            await wait(70);
+        };
+        const superSpace = async () => {
+            keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_Super_L, Clutter.KeyState.PRESSED);
+            await wait(100);
+            keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_space, Clutter.KeyState.PRESSED);
+            await wait(60);
+            keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_space, Clutter.KeyState.RELEASED);
+            keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_Super_L, Clutter.KeyState.RELEASED);
+            await wait(450);
+        };
+        const keys = () => spotlight._results.map(result => result.key);
+        const beforeSearch = wm.get_active_workspace_index();
+        const searchFocus = [...grid._windows.keys()].find(window => !window.is_fullscreen());
+        const searchCell = searchFocus.get_workspace().index();
+        wm.get_workspace_by_index(searchCell).activate_with_focus(searchFocus, global.get_current_time());
+        await wait(450);
+        grid._hideMap(true);
+        check(global.display.focus_window === searchFocus && !spotlight.visible && !Main.layoutManager.primaryMonitor.inFullscreen,
+            `An application window has focus before search opens: ${searchFocus?.get_title()}`);
+        await superSpace();
+        check(spotlight.visible && spotlight.panel.is_mapped() && !grid._map && !grid._mapPinned && !grid._superHeld,
+            `Super + Space opens search in place of the grid map: open=${spotlight.visible} map=${!!grid._map}`);
+        check(spotlight.panel.get_theme_node().get_background_color().to_string() === '#000000ff' &&
+            spotlight.panel.y === desktop.mapAnchor() && spotlight.panel.scale_x === 1 && spotlight.panel.opacity === 255 &&
+            Math.abs(spotlight.panel.x + spotlight.panel.width / 2 - (monitor.x + monitor.width / 2)) <= 1,
+        `Search hangs centred beneath the notch in the islands' black: ${spotlight.panel.x},${spotlight.panel.y}`);
+        check(grid._overlayCompositing && !desktop.expanded && spotlight._results.length === 0 && !spotlight._list.visible,
+            'Search opens empty, above the application, with the notch drawer shut');
+        for (const key of [Clutter.KEY_g, Clutter.KEY_r, Clutter.KEY_i, Clutter.KEY_d])
+            await press(key);
+        check(spotlight.entry.get_text() === 'grid',
+            `Typing reaches search while an application has focus: "${spotlight.entry.get_text()}"`);
+        check(spotlight._results[0].title === 'Grid Launch Verification' && keys()[0].startsWith('app:') &&
+            spotlight._results[0].hint === 'Open', `Installed apps lead the results: ${keys()}`);
+        const windowRows = spotlight._results.filter(result => result.key.startsWith('window:'));
+        check(windowRows.length === 3 && windowRows.every(result => /^Grid test \d$/.test(result.title) &&
+            /Row \d, column \d$/.test(result.subtitle)),
+        `Open windows are listed with their cell: ${windowRows.map(result => `${result.title} (${result.subtitle})`)}`);
+        check(keys().includes('action:Pack the grid') && keys().at(-1) === 'web' &&
+            spotlight._results.at(-1).title === 'Search the web for “grid”' &&
+            spotlight._results.at(-1).subtitle === 'duckduckgo.com',
+        `Grid actions and a web search follow: ${keys()}`);
+        check(spotlight._rows[0].has_style_pseudo_class('selected') && spotlight._rows[0]._hint.opacity === 255 &&
+            spotlight._rows[1]._hint.opacity === 0, 'The first result is selected and says what Enter does');
+        const [, panelTop] = spotlight.panel.get_transformed_position();
+        check(panelTop + spotlight.panel.height <= monitor.y + monitor.height,
+            `Results fit on the screen: ${panelTop}+${spotlight.panel.height}`);
+        await capture('search');
+        // Jump to a window in another cell with the arrow keys and Enter.
+        const targetIndex = spotlight._results.findIndex(result => result.key.startsWith('window:') &&
+            !result.subtitle.endsWith(`Row ${Math.floor(searchCell / 3) + 1}, column ${searchCell % 3 + 1}`));
+        const targetWindow = windows.find(window =>
+            `window:${window.get_stable_sequence()}` === keys()[targetIndex]);
+        for (let i = 0; i < targetIndex; i++)
+            await press(Clutter.KEY_Down);
+        check(targetWindow && spotlight._selected === targetIndex &&
+            spotlight._rows[targetIndex].has_style_pseudo_class('selected') &&
+            !spotlight._rows[0].has_style_pseudo_class('selected'), `Arrow keys move the selection: ${spotlight._selected}`);
+        await press(Clutter.KEY_Return);
+        await wait(500);
+        check(!spotlight.visible && wm.get_active_workspace() === targetWindow.get_workspace() &&
+            global.display.focus_window === targetWindow && targetWindow.get_workspace().index() !== searchCell,
+        `Enter on a window jumps to its cell and focuses it: active=${wm.get_active_workspace_index()}`);
+        wm.get_workspace_by_index(searchCell).activate_with_focus(searchFocus, global.get_current_time());
+        await wait(450);
+        grid._hideMap(true);
+        // Sums are answered in place and Enter copies the answer.
+        await superSpace();
+        spotlight.entry.set_text('12 * (3 + 4)');
+        check(keys()[0] === 'calculator' && spotlight._results[0].title === '= 84' && spotlight._results[0].hint === 'Copy',
+            `A sum is answered above everything else: ${spotlight._results[0]?.title}`);
+        await press(Clutter.KEY_Return);
+        await wait(300);
+        const copied = await new Promise(resolve => St.Clipboard.get_default()
+            .get_text(St.ClipboardType.CLIPBOARD, (_clipboard, text) => resolve(text)));
+        check(copied === '84' && !spotlight.visible, `Enter copies the answer and closes search: "${copied}"`);
+        check(global.display.focus_window === searchFocus && wm.get_active_workspace_index() === searchCell,
+            'Closing search returns keyboard focus to the application');
+        // Every way out: Escape, the shortcut again, and a click elsewhere.
+        await superSpace();
+        check(spotlight.visible && spotlight.entry.get_text() === '', 'Search reopens empty');
+        await press(Clutter.KEY_Escape);
+        await wait(250);
+        check(!spotlight.visible && !spotlight._group.visible, 'Escape closes search');
+        await superSpace();
+        await superSpace();
+        check(!spotlight.visible && !grid._map && !Main.overview.visible, 'Super + Space closes search again without showing the map');
+        await superSpace();
+        pointer.notify_absolute_motion(GLib.get_monotonic_time(), monitor.x + 40, monitor.y + monitor.height - 200);
+        await wait(80);
+        pointer.notify_button(GLib.get_monotonic_time(), Clutter.BUTTON_PRIMARY, Clutter.ButtonState.PRESSED);
+        await wait(40);
+        pointer.notify_button(GLib.get_monotonic_time(), Clutter.BUTTON_PRIMARY, Clutter.ButtonState.RELEASED);
+        await wait(300);
+        check(!spotlight.visible && global.display.focus_window === searchFocus, 'Clicking outside closes search');
+        // A quick tap of Super on its own does the same as the shortcut.
+        await tapSuper();
+        check(spotlight.visible && !grid._map && !grid._superHeld && spotlight.entry.get_text() === '',
+            `Tapping Super opens search without showing the map: open=${spotlight.visible} map=${!!grid._map}`);
+        await press(Clutter.KEY_f);
+        check(spotlight.entry.get_text() === 'f', 'Search opened by a tap takes the keyboard');
+        await tapSuper(Clutter.KEY_Super_R);
+        check(!spotlight.visible && !grid._map && global.display.focus_window === searchFocus,
+            'Tapping either Super again closes search');
+        // Super with a key that only the application receives is not a tap.
+        keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_Super_L, Clutter.KeyState.PRESSED);
+        await wait(40);
+        keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_t, Clutter.KeyState.PRESSED);
+        await wait(40);
+        keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_t, Clutter.KeyState.RELEASED);
+        await wait(30);
+        keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_Super_L, Clutter.KeyState.RELEASED);
+        await wait(450);
+        check(!spotlight.visible && !grid._map && !grid._superHeld,
+            'Super with a key meant for the application opens neither search nor the map');
+        // Nor is Super held for a click or a drag.
+        keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_Super_L, Clutter.KeyState.PRESSED);
+        await wait(40);
+        pointer.notify_button(GLib.get_monotonic_time(), Clutter.BUTTON_PRIMARY, Clutter.ButtonState.PRESSED);
+        await wait(40);
+        pointer.notify_button(GLib.get_monotonic_time(), Clutter.BUTTON_PRIMARY, Clutter.ButtonState.RELEASED);
+        await wait(30);
+        keyboard.notify_keyval(GLib.get_monotonic_time(), Clutter.KEY_Super_L, Clutter.KeyState.RELEASED);
+        await wait(450);
+        check(!spotlight.visible && !grid._map, 'Super with a click is not a tap either');
+        wm.get_workspace_by_index(searchCell).activate_with_focus(searchFocus, global.get_current_time());
+        await wait(300);
+        grid._hideMap(true);
+        // Holding Super while search is open swaps it for the map.
+        await tapSuper();
+        check(spotlight.visible, 'Search reopens with a tap');
+        await holdSuper();
+        check(!spotlight.visible && !grid._map, 'Holding Super replaces search with the map until release');
+        // The grid map and search share the space beneath the notch.
+        await superSpace();
+        grid.toggleGrid();
+        await wait(100);
+        check(!spotlight.visible && grid._map?.visible, 'Opening the grid map closes search');
+        grid._hideMap(true);
+        // System and grid actions.
+        await superSpace();
+        spotlight.entry.set_text('hi');
+        check(!keys().some(key => key.startsWith('action:')), 'Two letters never put an action under Enter');
+        spotlight.entry.set_text('hide');
+        check(keys()[0] === 'action:Hide the islands', `The best match leads whatever its kind: ${keys()}`);
+        await press(Clutter.KEY_Return);
+        await wait(400);
+        check(grid._settings.get_boolean('notch-hidden') && !spotlight.visible, 'Enter runs an action');
+        await superSpace();
+        check(spotlight.visible && spotlight.panel.y === monitor.y + 16, 'Search still opens while the islands are hidden');
+        spotlight.entry.set_text('islands');
+        check(keys()[0] === 'action:Show the islands', 'The islands action follows their state');
+        spotlight._activate(spotlight._results[0], 0);
+        await wait(400);
+        check(!grid._settings.get_boolean('notch-hidden') && desktop.notch.visible, 'Search brings the islands back');
+        // Results from other apps arrive through GNOME's search providers.
+        const asked = [], opened = [];
+        const provider = {
+            id: 'fixture.desktop',
+            appInfo: {get_name: () => 'Files', get_icon: () => null},
+            getInitialResultSet: async terms => { asked.push(terms.join(' ')); return ['a', 'b', 'c', 'd', 'e']; },
+            filterResults: (ids, max) => ids.slice(0, max),
+            getResultMetas: async ids => ids.map(id => ({id, name: `Quarterly report ${id}.odt`,
+                description: 'Documents\n  2026', createIcon: size => new St.Icon({icon_name: 'text-x-generic', icon_size: size})})),
+            activateResult: (id, terms) => opened.push(`${id}:${terms.join(' ')}`),
+        };
+        await superSpace();
+        spotlight._providers = [provider];
+        spotlight.entry.set_text('q');
+        await wait(350);
+        check(asked.length === 0, 'A single letter is not sent to other apps');
+        spotlight.entry.set_text('quarterly rep');
+        check(keys().join() === 'web', `Nothing local matches: ${keys()}`);
+        await wait(400);
+        check(asked.join() === 'quarterly rep' && keys().join() === 'fixture.desktop:a,fixture.desktop:b,fixture.desktop:c,web' &&
+            spotlight._results[0].subtitle === 'Documents 2026',
+        `Provider results arrive above the web row, three at most: ${keys()} asked=${asked}`);
+        spotlight.entry.set_text('quarterly report b');
+        check(keys().join() === 'fixture.desktop:b,web', `Results that still match stay while typing continues: ${keys()}`);
+        await wait(400);
+        await press(Clutter.KEY_Down);
+        check(spotlight._selected === 1, 'Down moves on to the next result');
+        spotlight.entry.set_text('quarterly report');
+        await wait(400);
+        await press(Clutter.KEY_Down);
+        await press(Clutter.KEY_Down);
+        await press(Clutter.KEY_Up);
+        await press(Clutter.KEY_Return);
+        await wait(300);
+        check(opened.join() === 'b:quarterly report' && !spotlight.visible, `Enter opens a provider's result: ${opened}`);
+        spotlight._providers = null;
+        // Launch an app; a running app is then reached through the same row.
+        await superSpace();
+        spotlight.entry.set_text('launch verif');
+        check(keys()[0] === 'app:dev.kanterlabs.NotchboardLaunch.desktop', `Words match in any position: ${keys()}`);
+        await press(Clutter.KEY_Return);
+        await wait(1500);
+        const searchLaunched = [...grid._windows.keys()].find(w => w.get_title() === 'Grid launcher verification');
+        check(searchLaunched && !spotlight.visible && global.display.focus_window === searchLaunched &&
+            searchLaunched.get_workspace().index() !== searchCell,
+        'Enter launches an app into its own cell');
+        wm.get_workspace_by_index(searchCell).activate_with_focus(searchFocus, global.get_current_time());
+        await wait(450);
+        grid._hideMap(true);
+        await superSpace();
+        spotlight.entry.set_text('grid launch');
+        check(spotlight._results[0].hint === 'Switch' &&
+            spotlight._results[0].subtitle === `Open in row ${Math.floor(searchLaunched.get_workspace().index() / 3) + 1}, column ${searchLaunched.get_workspace().index() % 3 + 1}` &&
+            !keys().includes(`window:${searchLaunched.get_stable_sequence()}`),
+        `A running app shows its cell and is listed once: ${spotlight._results[0].subtitle} ${keys()}`);
+        await press(Clutter.KEY_Return);
+        await wait(500);
+        check(global.display.focus_window === searchLaunched && wm.get_active_workspace() === searchLaunched.get_workspace(),
+            'Enter on a running app switches to its window');
+        searchLaunched.delete(global.get_current_time());
+        await wait(700);
+        wm.get_workspace_by_index(beforeSearch).activate(global.get_current_time());
+        await wait(450);
+        grid._hideMap(true);
+        check(!spotlight.visible && !grid._map && wm.get_active_workspace_index() === beforeSearch &&
+            ![...grid._windows.keys()].some(w => w.get_title() === 'Grid launcher verification'),
+        'Search leaves the grid as it found it');
         // Move-reduced operation must not retain a slide or block navigation.
         const iface = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
         iface.set_boolean('enable-animations', false);
@@ -859,7 +1123,7 @@ export default class GridTest extends Extension {
             dir.get_child('schemas').make_directory(null);
             dir.get_child('icons').make_directory(null);
             const original = extension.dir.get_child('releases').get_child(originalManifest.revision);
-            for (const file of ['runtime.js', 'desktop.js', 'bell.js', 'codes.js', 'codePrompt.js', 'airpods.js', 'battery.js', 'power.js', 'grid.js', 'stylesheet.css', 'metadata.json',
+            for (const file of ['runtime.js', 'desktop.js', 'bell.js', 'codes.js', 'codePrompt.js', 'airpods.js', 'battery.js', 'power.js', 'spotlight.js', 'search.js', 'grid.js', 'stylesheet.css', 'metadata.json',
                 'schemas/org.gnome.shell.extensions.notchboard.gschema.xml', 'schemas/gschemas.compiled',
                 'icons/notchboard-bell-symbolic.svg', 'icons/notchboard-bell-muted-symbolic.svg'])
                 original.get_child(file).copy(dir.get_child(file), Gio.FileCopyFlags.NONE, null, null);
@@ -939,12 +1203,14 @@ Notchboard.prototype.enable = function () {
         check(grid._overlayHandler === 0, 'Disable releases ownership of the native Super handler');
         check(grid._superActions.size === 0, 'Disable releases both compositor Super accelerators');
         check(!grid._overlayCompositing, 'Disable releases overlay composition inhibition');
-        await tapSuper(Clutter.KEY_Super_L, false);
+        await tapSuper();
         check(Main.overview.visible, 'Disabling Notchboard restores Super opening GNOME Overview');
         Main.overview.hide();
         await wait(350);
         check(desktop._signals.length === 0 && desktop._docks.size === 0 && !desktop.launcher,
             'Disable removes launchpad, notch, dock guards and UI signals');
+        check(desktop.spotlight._destroyed && !desktop.spotlight.panel && !desktop.spotlight.visible,
+            'Disable removes search');
         check(Main.layoutManager.panelBox.visible, 'Disabling Notchboard restores the full top bar');
         check(!Object.hasOwn(Main.osdWindowManager, 'showAll') && !Object.hasOwn(Main.osdWindowManager, 'showOne') &&
             !Object.hasOwn(Main.endSessionDialog, 'OpenAsync') && !Object.hasOwn(Main.endSessionDialog, 'Close') &&
